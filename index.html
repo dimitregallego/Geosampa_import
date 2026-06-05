@@ -1197,121 +1197,101 @@ window.runImport=async function(){
  // ══════════════════════════════════════════════════════════════════
  // PACOTE BASE (FILTRO RÁPIDO COM TURF.JS)
  // ══════════════════════════════════════════════════════════════════
- window.runPresetBase = async function() {
-   if (!currentBBOX) {
-     log('err', '⚠ Execute a varredura (Ler Terreno) na aba ① primeiro!');
-     window.switchTab('scan');
-     return;
-   }
-   if (importRunning) return;
-   if (!proxyUrl) {
-     log('err', 'Configure o proxy antes de importar! Vá em ⚙ Proxy.');
-     window.switchTab('proxy');
-     return;
-   }
- 
-   importRunning = true;
-   const bbox = expandBBOX(currentBBOX, offsetMeters);
-   
-   // Prepara a interface para mostrar o progresso do pacote
-   const rowsEl = document.getElementById('importRows');
-   const barEl = document.getElementById('importProgressBar');
-   document.getElementById('importProgress').style.display = 'block';
-   rowsEl.innerHTML = '';
-   barEl.style.width = '0%';
- 
-   const setIS = (id, state, msg) => {
-     let el = document.getElementById(`is-preset-${id.replace(/\s/g,'')}`);
-     if (!el) {
-       const row = document.createElement('div'); row.className = 'import-row';
-       row.innerHTML = `<span class="import-name">${id}</span><span class="import-status pending" id="is-preset-${id.replace(/\s/g,'')}">aguardando</span>`;
-       rowsEl.appendChild(row);
-       el = document.getElementById(`is-preset-${id.replace(/\s/g,'')}`);
-     }
-     el.className = `import-status ${state}`; el.textContent = msg;
-   };
- 
-   // Configuração das camadas e cores solicitadas
-   const targets = [
-     { id: 'geoportal:quadra_viaria_editada', label: 'Quadra', color: '#E8E4C9' },       // Bege claro
-     { id: 'geoportal:calcada',               label: 'Calçada', color: '#D3D3D3' },      // Cinza claro
-     { id: 'geoportal:praca_largo',           label: 'Praça', color: '#4CAF50' },        // Verde
-     { id: 'geoportal:segmento_logradouro',   label: 'Segmento Rua', color: '#1E90FF' }  // Azul
-   ];
- 
-   let fetchedData = {};
-   let done = 0;
-   log('info', '─── Iniciando Importação do Pacote Base ───');
- 
-   try {
-     // 1. Busca as camadas alvo no GeoSampa e cria os layers
-     for (const t of targets) {
-       setIS(t.label, 'running', 'buscando...');
-       const gj = await fetchWFS(t.id, bbox, 1000, 30000).catch(() => ({ features: [] }));
-       const features = gj.features ?? [];
-       fetchedData[t.label] = features;
-       
-       if (features.length > 0) {
-         const coloredFeatures = features.map(f => {
-           f.properties = f.properties || {};
-           f.properties.fill = t.color;
-           f.properties.stroke = t.color;
-           f.properties._layer = t.label;
-           return f;
-         });
-         await rpc.invoke('updateGeoJSONLayerContents', [`Base · ${t.label}`, { type: 'FeatureCollection', features: coloredFeatures }]);
-         setIS(t.label, 'done', `✓ ${features.length}`);
-         log('ok', `Pacote Base: ${t.label} importada.`);
-       } else {
-         setIS(t.label, 'done', '0 feições');
-       }
-       done++; 
-       barEl.style.width = `${(done / 5) * 100}%`;
-     }
- 
-     // 2. Calcula a Superfície da RUA (Subtração)
-     setIS('Rua (Superfície)', 'running', 'calculando recorte...');
-     
-     let ruaPoly = turf.bboxPolygon([bbox.minX, bbox.minY, bbox.maxX, bbox.maxY]);
-     let obstacles = [];
- 
-     ['Quadra', 'Calçada', 'Praça'].forEach(k => {
-       if (fetchedData[k]) {
-         fetchedData[k].forEach(f => {
-           if (f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')) {
-             obstacles.push(f);
-           }
-         });
-       }
-     });
- 
-     if (obstacles.length > 0) {
-       for (let obs of obstacles) {
-         try { ruaPoly = turf.difference(ruaPoly, obs); } catch(e) {}
-         if (!ruaPoly) break;
-       }
- 
-       if (ruaPoly) {
-         ruaPoly.properties = { fill: '#555555', stroke: '#555555', _layer: 'Rua' };
-         await rpc.invoke('updateGeoJSONLayerContents', [`Base · Rua (Superfície)`, { type: 'FeatureCollection', features: [ruaPoly] }]);
-         setIS('Rua (Superfície)', 'done', '✓ gerada');
-         log('ok', 'Pacote Base: Superfície da Rua gerada com sucesso.');
-       } else {
-         setIS('Rua (Superfície)', 'done', 'sem área livre');
-       }
-     } else {
-       setIS('Rua (Superfície)', 'done', 'sem obstáculos');
-     }
-     
-     barEl.style.width = '100%';
-     log('ok', '─── Pacote Base concluído! ───');
- 
-   } catch (err) {
-     log('err', `Erro no pacote base: ${err.message}`);
-   } finally {
-     importRunning = false;
-   }
- };
+window.runPresetBase = async function() {
+  if (!currentBBOX) {
+    log('err', '⚠ Execute a varredura (Ler Terreno) na aba ① primeiro!');
+    window.switchTab('scan');
+    return;
+  }
+  if (importRunning) return;
+  if (!proxyUrl) {
+    log('err', 'Configure o proxy antes de importar! Vá em ⚙ Proxy.');
+    window.switchTab('proxy');
+    return;
+  }
+
+  importRunning = true;
+  const bbox = expandBBOX(currentBBOX, offsetMeters);
+  
+  const rowsEl = document.getElementById('importRows');
+  const barEl = document.getElementById('importProgressBar');
+  document.getElementById('importProgress').style.display = 'block';
+  rowsEl.innerHTML = '';
+  barEl.style.width = '0%';
+
+  const setIS = (id, state, msg) => {
+    let el = document.getElementById(`is-preset-${id.replace(/\s/g,'')}`);
+    if (!el) {
+      const row = document.createElement('div'); row.className = 'import-row';
+      row.innerHTML = `<span class="import-name">${id}</span><span class="import-status pending" id="is-preset-${id.replace(/\s/g,'')}">aguardando</span>`;
+      rowsEl.appendChild(row);
+      el = document.getElementById(`is-preset-${id.replace(/\s/g,'')}`);
+    }
+    el.className = `import-status ${state}`; el.textContent = msg;
+  };
+
+  // 1. Configuração com CORES DO GIRAFFE (Apenas Calçada tem height > 0)
+  const targets = [
+    { id: 'geoportal:quadra_viaria_editada', label: 'Quadra',       color: '#E8E4C9', height: 0 },
+    { id: 'geoportal:praca_largo',           label: 'Praça',        color: '#4CAF50', height: 0 },
+    { id: 'geoportal:calcada',               label: 'Calçada',      color: '#D3D3D3', height: 0.15 }, // 15cm
+    { id: 'geoportal:segmento_logradouro',   label: 'Segmento Rua', color: '#1E90FF', height: 0 }
+  ];
+
+  log('info', '─── Importando Pacote Base (Calçada 3D) ───');
+  let done = 0;
+
+  try {
+    // 2. Busca e injeta as camadas com cor e altura
+    for (const t of targets) {
+      setIS(t.label, 'running', 'buscando...');
+      const gj = await fetchWFS(t.id, bbox, 1000, 30000).catch(() => ({ features: [] }));
+      const features = gj.features ?? [];
+      
+      if (features.length > 0) {
+        const styledFeatures = features.map(f => {
+          f.properties = f.properties || {};
+          f.properties.color = t.color;
+          f.properties.fill = t.color;
+          f.properties.stroke = t.color;
+          if (t.height > 0) f.properties.height = t.height; 
+          f.properties._layer = t.label;
+          return f;
+        });
+        
+        await rpc.invoke('updateGeoJSONLayerContents', [`Base · ${t.label}`, { type: 'FeatureCollection', features: styledFeatures }]);
+        setIS(t.label, 'done', `✓ ${features.length}`);
+      } else {
+        setIS(t.label, 'done', '0 feições');
+      }
+      done++;
+      barEl.style.width = `${(done / 5) * 100}%`;
+    }
+
+    // 3. Cria a Rua como um "Tapete" gigante no nível zero
+    setIS('Rua (Superfície)', 'running', 'gerando tapete...');
+    let ruaPoly = turf.bboxPolygon([bbox.minX, bbox.minY, bbox.maxX, bbox.maxY]);
+    
+    ruaPoly.properties = { 
+      color: '#555555', // Cinza escuro
+      fill: '#555555',
+      stroke: '#555555',
+      height: 0,
+      _layer: 'Rua'
+    };
+
+    await rpc.invoke('updateGeoJSONLayerContents', [`Base · Rua (Superfície)`, { type: 'FeatureCollection', features: [ruaPoly] }]);
+    setIS('Rua (Superfície)', 'done', '✓ gerada');
+    
+    barEl.style.width = '100%';
+    log('ok', '─── Pacote Base concluído! ───');
+
+  } catch (err) {
+    log('err', `Erro no pacote base: ${err.message}`);
+  } finally {
+    importRunning = false;
+  }
+};
 // ══════════════════════════════════════════════════════════════════
 // TABELA DE PARÂMETROS URBANÍSTICOS — Lei 16.402/16 (LPUOS SP)
 // Atualizada com Lei 17.975/23 e Lei 18.177/24
