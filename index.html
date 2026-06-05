@@ -9,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Hind:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -413,15 +412,6 @@
 
     <!-- ② IMPORT -->
     <div class="panel" id="panel-import">
-<div class="card" id="presetCard">
-        <div class="card-label">Filtros Rápidos</div>
-         <button class="btn btn-ghost" style="width:100%; border-color:var(--kv-blue); color:var(--kv-blue); margin-bottom: 6px;" onclick="window.runPresetBase()">
-           🏙 Importar Pacote Base (Quadras, Calçadas, Praças e Ruas)
-         </button>
-         <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.4">
-          Gera 5 layers com cores pré-definidas. A <b>Rua (Cinza Escuro)</b> é gerada matematicamente subtraindo as quadras, praças e calçadas do terreno.
-         </div>
-       </div>
       <div class="card">
         <div class="card-label">
           Camadas disponíveis
@@ -1193,137 +1183,7 @@ window.runImport=async function(){
   log('ok',`─── Importação: ${done}/${total} ───`);setScanStatus('success',`${done} camadas importadas`);window.switchTab('log');
   importRunning=false;document.getElementById('btnImport').disabled=false;
 };
- 
-// ══════════════════════════════════════════════════════════════════
-// PACOTE BASE (MÉTODO CORRETO: CORES NATIVAS, 3D E RECORTES REAIS)
-// ══════════════════════════════════════════════════════════════════
-window.runPresetBase = async function() {
-  if (!currentBBOX) {
-    log('err', '⚠ Execute a varredura (Ler Terreno) na aba ① primeiro!');
-    window.switchTab('scan');
-    return;
-  }
-  if (importRunning) return;
-  if (!proxyUrl) {
-    log('err', 'Configure o proxy antes de importar! Vá em ⚙ Proxy.');
-    window.switchTab('proxy');
-    return;
-  }
 
-  importRunning = true;
-  const bbox = expandBBOX(currentBBOX, offsetMeters);
-  
-  const rowsEl = document.getElementById('importRows');
-  const barEl = document.getElementById('importProgressBar');
-  document.getElementById('importProgress').style.display = 'block';
-  rowsEl.innerHTML = '';
-  barEl.style.width = '0%';
-
-  const setIS = (id, state, msg) => {
-    let el = document.getElementById(`is-preset-${id.replace(/\s/g,'')}`);
-    if (!el) {
-      const row = document.createElement('div'); row.className = 'import-row';
-      row.innerHTML = `<span class="import-name">${id}</span><span class="import-status pending" id="is-preset-${id.replace(/\s/g,'')}">aguardando</span>`;
-      rowsEl.appendChild(row);
-      el = document.getElementById(`is-preset-${id.replace(/\s/g,'')}`);
-    }
-    el.className = `import-status ${state}`; el.textContent = msg;
-  };
-
-  // 1. Configuração com cores e a espessura da calçada (0.15 = 15cm)
-  const targets = [
-    { id: 'geoportal:quadra_viaria_editada', label: 'Quadra',       color: '#E8E4C9', height: 0 },
-    { id: 'geoportal:calcada',               label: 'Calçada',      color: '#D3D3D3', height: 0.15 },
-    { id: 'geoportal:praca_largo',           label: 'Praça',        color: '#4CAF50', height: 0 },
-    { id: 'geoportal:segmento_logradouro',   label: 'Segmento Rua', color: '#1E90FF', height: 0 }
-  ];
-
-  log('info', '─── Importando Pacote Base (Geometrias 3D Nativas) ───');
-  let done = 0;
-  let obstaclesRua = []; // Guardará tudo o que deve ser subtraído da rua matematicamente
-
-  try {
-    // 2. Busca as camadas, aplica propriedades visuais e envia pro Giraffe
-    for (const t of targets) {
-      setIS(t.label, 'running', 'buscando...');
-      const gj = await fetchWFS(t.id, bbox, 1000, 30000).catch(() => ({ features: [] }));
-      const features = gj.features ?? [];
-      
-      if (features.length > 0) {
-        const cleanFeatures = features.map(f => {
-          // Salva Quadras, Praças e Calçadas para serem usadas como obstáculo ao criar a Rua
-          if (t.label !== 'Segmento Rua' && f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')) {
-            obstaclesRua.push(f);
-          }
-
-          // Monta a geometria no formato nativo que o Giraffe aceita cor e altura
-          return {
-            type: 'Feature',
-            geometry: f.geometry,
-            properties: {
-              fill: t.color,
-              stroke: t.color,
-              height: t.height,
-              _layer: t.label,
-              _source: 'GeoSampa'
-            }
-          };
-        });
-        
-        // Usar createRawSections transforma os polígonos em superfícies editáveis e coloridas!
-        await rpc.invoke('createRawSections', [cleanFeatures]);
-        setIS(t.label, 'done', `✓ ${features.length}`);
-        log('ok', `Pacote Base: ${t.label} importada.`);
-      } else {
-        setIS(t.label, 'done', '0 feições');
-      }
-      done++;
-      barEl.style.width = `${(done / 5) * 100}%`;
-    }
-
-    // 3. Calcula a Superfície da RUA (Subtraindo as outras camadas do BBOX)
-    setIS('Rua', 'running', 'recortando rua...');
-    let ruaPoly = turf.bboxPolygon([bbox.minX, bbox.minY, bbox.maxX, bbox.maxY]);
-
-    if (obstaclesRua.length > 0) {
-      for (let obs of obstaclesRua) {
-        try { 
-          ruaPoly = turf.difference(ruaPoly, obs); 
-        } catch(e) {
-          // Ignora falhas de geometria do GeoSampa para não travar a rotina
-        }
-        if (!ruaPoly) break;
-      }
-    }
-
-    if (ruaPoly) {
-      const ruaFeature = {
-        type: 'Feature',
-        geometry: ruaPoly.geometry,
-        properties: { 
-          fill: '#555555', 
-          stroke: '#555555',
-          height: 0,
-          _layer: 'Rua',
-          _source: 'Turf'
-        }
-      };
-      await rpc.invoke('createRawSections', [[ruaFeature]]);
-      setIS('Rua', 'done', '✓ gerada');
-      log('ok', 'Pacote Base: Superfície da Rua esculpida e gerada com sucesso.');
-    } else {
-      setIS('Rua', 'done', 'sem área livre');
-    }
-    
-    barEl.style.width = '100%';
-    log('ok', '─── Pacote Base concluído! ───');
-
-  } catch (err) {
-    log('err', `Erro no pacote base: ${err.message}`);
-  } finally {
-    importRunning = false;
-  }
-};
 // ══════════════════════════════════════════════════════════════════
 // TABELA DE PARÂMETROS URBANÍSTICOS — Lei 16.402/16 (LPUOS SP)
 // Atualizada com Lei 17.975/23 e Lei 18.177/24
