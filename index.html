@@ -1194,9 +1194,9 @@ window.runImport=async function(){
   importRunning=false;document.getElementById('btnImport').disabled=false;
 };
  
- // ══════════════════════════════════════════════════════════════════
- // PACOTE BASE (FILTRO RÁPIDO COM TURF.JS)
- // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// PACOTE BASE (MÉTODO CORRETO: CORES NATIVAS, 3D E RECORTES REAIS)
+// ══════════════════════════════════════════════════════════════════
 window.runPresetBase = async function() {
   if (!currentBBOX) {
     log('err', '⚠ Execute a varredura (Ler Terreno) na aba ① primeiro!');
@@ -1230,37 +1230,50 @@ window.runPresetBase = async function() {
     el.className = `import-status ${state}`; el.textContent = msg;
   };
 
-  // 1. Configuração com CORES DO GIRAFFE (Apenas Calçada tem height > 0)
+  // 1. Configuração com cores e a espessura da calçada (0.15 = 15cm)
   const targets = [
     { id: 'geoportal:quadra_viaria_editada', label: 'Quadra',       color: '#E8E4C9', height: 0 },
+    { id: 'geoportal:calcada',               label: 'Calçada',      color: '#D3D3D3', height: 0.15 },
     { id: 'geoportal:praca_largo',           label: 'Praça',        color: '#4CAF50', height: 0 },
-    { id: 'geoportal:calcada',               label: 'Calçada',      color: '#D3D3D3', height: 0.15 }, // 15cm
     { id: 'geoportal:segmento_logradouro',   label: 'Segmento Rua', color: '#1E90FF', height: 0 }
   ];
 
-  log('info', '─── Importando Pacote Base (Calçada 3D) ───');
+  log('info', '─── Importando Pacote Base (Geometrias 3D Nativas) ───');
   let done = 0;
+  let obstaclesRua = []; // Guardará tudo o que deve ser subtraído da rua matematicamente
 
   try {
-    // 2. Busca e injeta as camadas com cor e altura
+    // 2. Busca as camadas, aplica propriedades visuais e envia pro Giraffe
     for (const t of targets) {
       setIS(t.label, 'running', 'buscando...');
       const gj = await fetchWFS(t.id, bbox, 1000, 30000).catch(() => ({ features: [] }));
       const features = gj.features ?? [];
       
       if (features.length > 0) {
-        const styledFeatures = features.map(f => {
-          f.properties = f.properties || {};
-          f.properties.color = t.color;
-          f.properties.fill = t.color;
-          f.properties.stroke = t.color;
-          if (t.height > 0) f.properties.height = t.height; 
-          f.properties._layer = t.label;
-          return f;
+        const cleanFeatures = features.map(f => {
+          // Salva Quadras, Praças e Calçadas para serem usadas como obstáculo ao criar a Rua
+          if (t.label !== 'Segmento Rua' && f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')) {
+            obstaclesRua.push(f);
+          }
+
+          // Monta a geometria no formato nativo que o Giraffe aceita cor e altura
+          return {
+            type: 'Feature',
+            geometry: f.geometry,
+            properties: {
+              fill: t.color,
+              stroke: t.color,
+              height: t.height,
+              _layer: t.label,
+              _source: 'GeoSampa'
+            }
+          };
         });
         
-        await rpc.invoke('updateGeoJSONLayerContents', [`Base · ${t.label}`, { type: 'FeatureCollection', features: styledFeatures }]);
+        // Usar createRawSections transforma os polígonos em superfícies editáveis e coloridas!
+        await rpc.invoke('createRawSections', [cleanFeatures]);
         setIS(t.label, 'done', `✓ ${features.length}`);
+        log('ok', `Pacote Base: ${t.label} importada.`);
       } else {
         setIS(t.label, 'done', '0 feições');
       }
@@ -1268,20 +1281,39 @@ window.runPresetBase = async function() {
       barEl.style.width = `${(done / 5) * 100}%`;
     }
 
-    // 3. Cria a Rua como um "Tapete" gigante no nível zero
-    setIS('Rua (Superfície)', 'running', 'gerando tapete...');
+    // 3. Calcula a Superfície da RUA (Subtraindo as outras camadas do BBOX)
+    setIS('Rua', 'running', 'recortando rua...');
     let ruaPoly = turf.bboxPolygon([bbox.minX, bbox.minY, bbox.maxX, bbox.maxY]);
-    
-    ruaPoly.properties = { 
-      color: '#555555', // Cinza escuro
-      fill: '#555555',
-      stroke: '#555555',
-      height: 0,
-      _layer: 'Rua'
-    };
 
-    await rpc.invoke('updateGeoJSONLayerContents', [`Base · Rua (Superfície)`, { type: 'FeatureCollection', features: [ruaPoly] }]);
-    setIS('Rua (Superfície)', 'done', '✓ gerada');
+    if (obstaclesRua.length > 0) {
+      for (let obs of obstaclesRua) {
+        try { 
+          ruaPoly = turf.difference(ruaPoly, obs); 
+        } catch(e) {
+          // Ignora falhas de geometria do GeoSampa para não travar a rotina
+        }
+        if (!ruaPoly) break;
+      }
+    }
+
+    if (ruaPoly) {
+      const ruaFeature = {
+        type: 'Feature',
+        geometry: ruaPoly.geometry,
+        properties: { 
+          fill: '#555555', 
+          stroke: '#555555',
+          height: 0,
+          _layer: 'Rua',
+          _source: 'Turf'
+        }
+      };
+      await rpc.invoke('createRawSections', [[ruaFeature]]);
+      setIS('Rua', 'done', '✓ gerada');
+      log('ok', 'Pacote Base: Superfície da Rua esculpida e gerada com sucesso.');
+    } else {
+      setIS('Rua', 'done', 'sem área livre');
+    }
     
     barEl.style.width = '100%';
     log('ok', '─── Pacote Base concluído! ───');
