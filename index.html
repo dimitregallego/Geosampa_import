@@ -406,9 +406,12 @@
           </div>
         </div>
       </div>
-      <button class="btn btn-primary" id="btnScan" onclick="runScan()">
-        🔍 Ler Terreno &amp; Varrer Camadas
-      </button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" id="btnScan" onclick="runScan()" style="flex:1">
+          🔍 Ler Terreno &amp; Varrer Camadas
+        </button>
+        <button class="btn btn-ghost" id="btnPickTerrain" onclick="pickTerrainAndScan()" title="Clicar no terreno no mapa para selecionar" style="padding:9px 12px;flex-shrink:0">🖱</button>
+      </div>
     </div>
 
     <!-- ② IMPORT -->
@@ -981,7 +984,7 @@ function featureToBBOX(f){
 // ══════════════════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════════════════
-let currentBBOX=null, offsetMeters=150, layerResults=[], useSelection=true, scanRunning=false, importRunning=false;
+let currentBBOX=null, currentGeometry=null, _forcedGeometry=null, offsetMeters=150, layerResults=[], useSelection=true, scanRunning=false, importRunning=false;
 
 // ══════════════════════════════════════════════════════════════════
 // UI HELPERS
@@ -1080,13 +1083,57 @@ window.updateModeHint = function() {
 // READ TERRAIN
 // ══════════════════════════════════════════════════════════════════
 async function readTerrain(){
-  if(useSelection){
-    try{const sel=await rpc.invoke('getSelectedFeatures',[]);if(sel&&sel.length>0){let m=null;for(const f of sel)if(f.geometry)m=mergeBBOX(m,featureToBBOX(f));if(m){log('ok',`${sel.length} feição(ões) selecionada(s)`);return m;}}}catch(e){log('warn',`getSelectedFeatures: ${e.message}`);}
-    try{const raw=giraffeState.get('rawSections');if(raw?.features?.length>0){let m=null;for(const f of raw.features)if(f.geometry)m=mergeBBOX(m,featureToBBOX(f));if(m){log('warn',`Usando rawSections (${raw.features.length})`);return m;}}}catch(e){}
+  // Returns { bbox, geometry } where geometry is the actual GeoJSON polygon (or null for point fallback)
+
+  // If terrain was pre-set by pickTerrainAndScan, use it directly
+  if (_forcedGeometry) {
+    const bbox = featureToBBOX({ geometry: _forcedGeometry });
+    const g = _forcedGeometry;
+    _forcedGeometry = null; // consume
+    return { bbox, geometry: g };
   }
-  const b=await rpc.invoke('getMapBounds',[]);const c=b?.features?.[0]?.geometry?.coordinates?.[0];
-  if(c){const lngs=c.map(x=>x[0]),lats=c.map(x=>x[1]);const cx=(Math.min(...lngs)+Math.max(...lngs))/2,cy=(Math.min(...lats)+Math.max(...lats))/2;log('warn',`Centro do mapa: (${cx.toFixed(5)},${cy.toFixed(5)})`);const t=0.0001;return{minX:cx-t,minY:cy-t,maxX:cx+t,maxY:cy+t};}
-  throw new Error('Não foi possível determinar o terreno.');
+
+  if(useSelection){
+    // 1. Try getSelectedFeatures
+    try{
+      const sel=await rpc.invoke('getSelectedFeatures',[]);
+      if(sel&&sel.length>0){
+        const geoms=sel.filter(f=>f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
+        if(geoms.length>0){
+          const merged=mergeToSinglePolygon(geoms);
+          const bbox=featureToBBOX({geometry:merged});
+          log('ok',`Geometria selecionada: ${geoms.length} polígono(s)`);
+          return {bbox, geometry:merged};
+        }
+      }
+    }catch(e){log('warn',`getSelectedFeatures: ${e.message}`);}
+
+    // 2. Fallback: rawSections
+    try{
+      const raw=giraffeState.get('rawSections');
+      if(raw?.features?.length>0){
+        const geoms=raw.features.filter(f=>f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
+        if(geoms.length>0){
+          const merged=mergeToSinglePolygon(geoms);
+          const bbox=featureToBBOX({geometry:merged});
+          log('warn',`Usando rawSections: ${geoms.length} polígono(s)`);
+          return {bbox, geometry:merged};
+        }
+      }
+    }catch(e){}
+  }
+
+  // 3. Fallback: centre of viewport (no real geometry)
+  const b=await rpc.invoke('getMapBounds',[]);
+  const c=b?.features?.[0]?.geometry?.coordinates?.[0];
+  if(c){
+    const lngs=c.map(x=>x[0]),lats=c.map(x=>x[1]);
+    const cx=(Math.min(...lngs)+Math.max(...lngs))/2,cy=(Math.min(...lats)+Math.max(...lats))/2;
+    log('warn',`Sem polígono selecionado — usando centro do mapa (${cx.toFixed(5)},${cy.toFixed(5)})`);
+    const t=0.0001;
+    return {bbox:{minX:cx-t,minY:cy-t,maxX:cx+t,maxY:cy+t}, geometry:null};
+  }
+  throw new Error('Não foi possível determinar o terreno. Selecione um polígono no mapa.');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1104,9 +1151,13 @@ window.runScan=async function(){
   setScanStatus('loading','Lendo terreno...');
   log('info','─── Varredura iniciada ───');
   try{
-    currentBBOX=await readTerrain();displayBBOX();
-    const bbox=expandBBOX(currentBBOX,offsetMeters);
-    setScanStatus('loading',`Varrendo ${LAYER_CATALOG.length} camadas...`);
+    const terrain=await readTerrain();
+    currentBBOX=terrain.bbox; currentGeometry=terrain.geometry; displayBBOX();
+    // Use INTERSECTS with real polygon if available, else BBOX+offset
+    const bboxWithOffset=expandBBOX(currentBBOX,offsetMeters);
+    const scanWKT = currentGeometry ? geojsonToWKT(turfBuffer(currentGeometry, offsetMeters)) : null;
+    setScanStatus('loading',`Varrendo ${LAYER_CATALOG.length} camadas — ${scanWKT?'polígono+buffer':'BBOX+offset'}...`);
+    log('info',`Modo: ${scanWKT?'INTERSECTS com polígono + buffer '+offsetMeters+'m':'BBOX + offset '+offsetMeters+'m'}`);
     window.switchTab('import');
     document.getElementById('emptyLayerState').style.display='none';
     document.getElementById('scanProgressWrap').style.display='block';
@@ -1120,7 +1171,12 @@ window.runScan=async function(){
     let done=0;const total=LAYER_CATALOG.length;
     const probe=async(entry)=>{
       const r={...entry,count:0,features:[],checked:false,error:null};
-      try{const gj=await fetchWFS(entry.id,bbox,1);r.count=gj.totalFeatures??gj.numberMatched??(gj.features?.length??0);r.features=gj.features??[];r.checked=r.count>0||r.features.length>0;}
+      try{
+        const gj = scanWKT
+          ? await fetchWFSByGeom(entry.id, scanWKT, 1)
+          : await fetchWFS(entry.id, bboxWithOffset, 1);
+        r.count=gj.totalFeatures??gj.numberMatched??(gj.features?.length??0);r.features=gj.features??[];r.checked=r.count>0||r.features.length>0;
+      }
       catch(e){r.error=e.message;}
       done++;document.getElementById('scanProgressBar').style.width=`${Math.round(done/total*100)}%`;document.getElementById('scanProgressText').textContent=`${done}/${total} — ${entry.label}`;
       layerResults.push(r);renderLayerItem(r);updateSelCount();
@@ -1168,7 +1224,9 @@ window.runImport=async function(){
   if(!toImport.length){log('warn','Nenhuma camada selecionada.');return;}
   if(!proxyUrl){log('err','Configure o proxy antes de importar! Vá em ⚙ Proxy.');window.switchTab('proxy');return;}
   importRunning=true;document.getElementById('btnImport').disabled=true;
-  const mode=document.getElementById('importMode').value,bbox=expandBBOX(currentBBOX,offsetMeters);
+  const mode=document.getElementById('importMode').value;
+  const importBBox=expandBBOX(currentBBOX,offsetMeters);
+  const importWKT = currentGeometry ? geojsonToWKT(turfBuffer(currentGeometry, offsetMeters)) : null;
   const rowsEl=document.getElementById('importRows'),barEl=document.getElementById('importProgressBar');
   document.getElementById('importProgress').style.display='block';rowsEl.innerHTML='';
   toImport.forEach(l=>{const row=document.createElement('div');row.className='import-row';row.innerHTML=`<span class="import-name">${l.label}</span><span class="import-status pending" id="is-${l.id.replace(':','-')}">aguardando</span>`;rowsEl.appendChild(row);});
@@ -1178,7 +1236,10 @@ window.runImport=async function(){
   for(const layer of toImport){
     setIS(layer.id,'running','buscando...');
     try{
-      const gj=await fetchWFS(layer.id,bbox,layer.maxF||200, layer.heavyGeom?55000:25000),features=gj.features??[];
+      const gj = importWKT
+        ? await fetchWFSByGeom(layer.id, importWKT, layer.maxF||200)
+        : await fetchWFS(layer.id, importBBox, layer.maxF||200, layer.heavyGeom?55000:25000);
+      const features=gj.features??[];
       if(!features.length){setIS(layer.id,'done','0 feições');log('warn',`${layer.label}: vazio no BBOX`);}
       else{
         const name=`GeoSampa · ${layer.label}`;
@@ -1393,6 +1454,18 @@ window.toggleReportSource = function() {
 };
 
 // ── Conversão WGS84 (lng/lat) → UTM Zone 23S / EPSG:31983 (metros) ─────────
+// ── Turf buffer helper — buffers a GeoJSON geometry by N meters ──────────
+// Returns the buffered geometry (or original if turf not available)
+function turfBuffer(geometry, meters) {
+  try {
+    if (typeof turf === 'undefined') return geometry;
+    const fc = { type: 'FeatureCollection', features: [{ type: 'Feature', geometry, properties: {} }] };
+    const buffered = turf.buffer(fc, meters / 1000, { units: 'kilometers', steps: 16 });
+    if (buffered?.features?.[0]?.geometry) return buffered.features[0].geometry;
+  } catch(e) { /* fallback to original */ }
+  return geometry;
+}
+
 // O GeoSampa armazena geometrias em EPSG:31983. CQL_FILTER INTERSECTS precisa
 // das coordenadas no mesmo SRS que o servidor usa internamente.
 function ll2utm(lng, lat) {
@@ -1474,6 +1547,33 @@ function setReportStatus(state, msg) {
 }
 
 // Deixa usuário clicar no terreno direto no mapa
+window.pickTerrainAndScan = async function() {
+  setScanStatus('loading', 'Clique no terreno no mapa...');
+  document.getElementById('btnScan').disabled = true;
+  document.getElementById('btnPickTerrain').disabled = true;
+  try {
+    const sections = await rpc.invoke('pickRawSections', []);
+    if (sections && sections.length > 0) {
+      const geoms = sections.filter(f => f.geometry && (f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
+      if (geoms.length > 0) {
+        const merged = mergeToSinglePolygon(geoms);
+        _forcedGeometry = merged; // readTerrain will consume this
+        log('ok', `Terreno clicado: ${geoms.length} polígono(s) — iniciando varredura...`);
+        await window.runScan();
+      } else {
+        setScanStatus('error', 'Geometria clicada não é um polígono.');
+      }
+    } else {
+      setScanStatus('error', 'Nenhuma geometria clicada.');
+    }
+  } catch(e) {
+    setScanStatus('error', e.message);
+  } finally {
+    document.getElementById('btnScan').disabled = false;
+    document.getElementById('btnPickTerrain').disabled = false;
+  }
+};
+
 window.pickTerrainAndReport = async function() {
   setReportStatus('loading', 'Clique no terreno no mapa...');
   try {
@@ -1514,9 +1614,10 @@ window.generateReport = async function() {
     }
   }
 
-  // 3. Fallback: usa BBOX da última varredura
-  if (!features && currentBBOX) {
-    log('warn', 'Sem geometria selecionada — usando BBOX da varredura como fallback.');
+  // 3. Fallback: usa geometria da última varredura
+  if (!features && currentGeometry) {
+    features = [{ type: 'Feature', geometry: currentGeometry, properties: {} }];
+    log('warn', 'Usando geometria da última varredura como fallback.');
   }
 
   await _runReport(features);
