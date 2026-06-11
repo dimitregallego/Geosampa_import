@@ -1373,69 +1373,139 @@ window.runImport=async function(){
      importRunning = false;
    }
  };
-// ══════════════════════════════════════════════════════════════════
-// TABELA DE PARÂMETROS URBANÍSTICOS — Lei 16.402/16 (LPUOS SP)
-// Atualizada com Lei 17.975/23 e Lei 18.177/24
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// TABELA DE PARÂMETROS URBANÍSTICOS — LPUOS SP
+// Fonte: Quadro 3 — Lei 16.402/16 + Lei 18.081/24 + Lei 18.177/24
+// Estrutura alinhada ao checklist de Análise Legal KV Arquitetos
+// ══════════════════════════════════════════════════════════════════════════════
 const ZONEAMENTO_PARAMS = {
-  // ── Campos: nome, ca_min, ca_basico, ca_maximo, to_500, to_500mais, gabarito,
-  //           recuo_frente, recuo_fundos_lat_ate10, recuo_fundos_lat_sup10, cota_terreno,
-  //           fruicao, usos, obs
-  // Fonte: Quadro 3 — Lei 16.402/16 consolidada com Lei 18.081/24 e Lei 18.177/24
+  // ══ ZONAS DE TRANSFORMAÇÃO (Eixos) ══════════════════════════════════════════
+  // Fonte: Quadro 3 LPUOS Lei 16.402/16 + Lei 18.081/24 + Lei 18.177/24
+  // Nota (j): recuos lat/fundos acima de 10m = 3m, dispensável Art.66
 
-  // ── ZONAS DE TRANSFORMAÇÃO ────────────────────────────────────────────────
-  'ZEU':    { nome:'Zona de Estruturação Urbana',                      ca_min:0.5,  ca_basico:1, ca_maximo:4,   to_500:0.85, to_500p:0.70, gabarito:'Livre (sem gabarito máximo)', recuo_frente:'Dispensado se passeio ≥5m (Art.67) — senão 5m', recuo_lat_ate10:'Dispensado (Art.66)', recuo_lat_sup10:'3m (dispensável — Art.66 II e III)', cota_terreno:'20m²/un', fruicao:true,  usos:'Uso misto de alta intensidade — eixos de transporte coletivo', obs:'CA máx 4 via OODC. Fruição pública obrigatória (passeio 5m). Notas (b) e (j) do Quadro 3.' },
-  'ZEUa':   { nome:'Zona de Estruturação Urbana Ambiental',            ca_min:null, ca_basico:1, ca_maximo:2,   to_500:0.70, to_500p:0.50, gabarito:'28m', recuo_frente:'Dispensado se passeio ≥5m (Art.67)', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'40m²/un', fruicao:true,  usos:'Uso misto — macrozona de proteção ambiental', obs:'Legislação estadual de mananciais quando mais restritiva.' },
-  'ZEUP':   { nome:'ZEU Predominantemente Residencial',                ca_min:0.5,  ca_basico:1, ca_maximo:2,   to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'Dispensado se passeio ≥5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:true,  usos:'Predominantemente residencial em eixos', obs:'Atendido Art.83 PDE: recebe automaticamente parâmetros de ZEU.' },
-  'ZEUPa':  { nome:'ZEU Predominantemente Residencial Ambiental',      ca_min:null, ca_basico:1, ca_maximo:1,   to_500:0.70, to_500p:0.50, gabarito:'28m', recuo_frente:'Dispensado se passeio ≥5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:true,  usos:'Residencial em eixos — área ambiental', obs:'Atendido Art.83 PDE: recebe automaticamente parâmetros de ZEUa.' },
-  'ZEM':    { nome:'Zona de Estruturação Metropolitana',               ca_min:0.5,  ca_basico:1, ca_maximo:2,   to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'Dispensado se passeio ≥5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'20m²/un', fruicao:true,  usos:'Uso misto de alta intensidade', obs:'CA máx pode ser 4 (Art.8º §1º).' },
-  'ZEMP':   { nome:'Zona de Estruturação Metropolitana Predomin. Res.',ca_min:0.5,  ca_basico:1, ca_maximo:2,   to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'Dispensado se passeio ≥5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'40m²/un', fruicao:true,  usos:'Predominantemente residencial em área metropolitana', obs:'CA máx pode ser 4 (Art.8º §2º).' },
+  'ZEU':    { nome:'Zona de Estruturação Urbana', ca_min:0.5, ca_basico:1, ca_maximo:4, to_500:0.85, to_500p:0.70, gabarito:'Livre (sem limite)', recuo_frente:'Dispensado se passeio≥5m — senão 5m (Art.67)', recuo_lat_ate10:'Dispensado (Art.66)', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'20m²/un', cota_garagem_max:32, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PA', taxa_perm_min:null, usos:'TODOS EXCETO: nRa-6; Ind-2', obs:'CA máx 4 via OODC. Fruição pública obrigatória (passeio 5m). FA mín 50%. Cota garagem máx 32m²/vaga.' },
 
-  // ── ZONAS DE QUALIFICAÇÃO ─────────────────────────────────────────────────
-  'ZC':     { nome:'Zona Centralidade',                                ca_min:0.3,  ca_basico:1, ca_maximo:2,   to_500:0.85, to_500p:0.70, gabarito:'48m', recuo_frente:'5m (dispensado se passeio ≥5m)', recuo_lat_ate10:'N/A (dispensado)', recuo_lat_sup10:'3m (dispensável — Art.66 II e III)', cota_terreno:'N/A', fruicao:true,  usos:'Centralidades de bairro — residencial e não-residencial diversificado', obs:'Em ZEU: ZC recebe parâmetros de ZEU (Lei 18.177/24, Art.3º VII).' },
-  'ZCa':    { nome:'Zona Centralidade Ambiental',                      ca_min:null, ca_basico:1, ca_maximo:1,   to_500:0.70, to_500p:0.70, gabarito:'20m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'Centralidade — macrozona de proteção ambiental', obs:'' },
-  'ZM':     { nome:'Zona Mista',                                       ca_min:0.3,  ca_basico:1, ca_maximo:2,   to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'5m (dispensado se passeio ≥5m)', recuo_lat_ate10:'N/A (dispensado)', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'Uso misto — residencial e não-residencial', obs:'' },
-  'ZMa':    { nome:'Zona Mista Ambiental',                             ca_min:null, ca_basico:1, ca_maximo:1,   to_500:0.70, to_500p:0.50, gabarito:'15m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'Uso misto — macrozona de proteção ambiental', obs:'' },
-  'ZCOR-1': { nome:'Zona Corredor Regional 1',                         ca_min:0.05, ca_basico:1, ca_maximo:1,   to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A (dispensado)', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'Corredor de uso misto junto a vias arteriais', obs:'Em ZEU: ZCOR recebe parâmetros de ZEU. CA máx 1 fora de eixos.' },
-  'ZCOR-2': { nome:'Zona Corredor Regional 2',                         ca_min:0.05, ca_basico:1, ca_maximo:1,   to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'Corredor de uso misto', obs:'' },
-  'ZCOR-3': { nome:'Zona Corredor Regional 3',                         ca_min:0.05, ca_basico:1, ca_maximo:1,   to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'Corredor de uso misto — inclui indústria não incômoda', obs:'' },
+  'ZEUa':   { nome:'Zona de Estruturação Urbana Ambiental', ca_min:0, ca_basico:1, ca_maximo:2, to_500:0.70, to_500p:0.50, gabarito:'28m', recuo_frente:'Dispensado se passeio≥5m — senão 5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'40m²/un', cota_garagem_max:32, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PA', taxa_perm_min:null, usos:'TODOS EXCETO: nRa-6; Ind-1b; Ind-2', obs:'Legislação estadual de mananciais prevalece quando mais restritiva.' },
 
-  // ── ZONAS ESPECIAIS DE INTERESSE SOCIAL ──────────────────────────────────
-  'ZEIS-1': { nome:'ZEIS 1 — Assentamentos Precários',                 ca_min:0.5,  ca_basico:1, ca_maximo:2.5, to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'N/A (dispensado)', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'HIS mín.60% + comércio/serviço local', obs:'CA máx 2 para lote <1.000m². Favelas e loteamentos irregulares.' },
-  'ZEIS-2': { nome:'ZEIS 2 — Lotes para HIS/HMP',                      ca_min:0.5,  ca_basico:1, ca_maximo:4,   to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'HIS mín.60% + comércio/serviço', obs:'CA máx 2 para lote <1.000m². Incentivos de CA via OODC.' },
-  'ZEIS-3': { nome:'ZEIS 3 — Áreas Dotadas de Infraestrutura',         ca_min:0.5,  ca_basico:1, ca_maximo:4,   to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'HIS mín.40% + HMP + comércio/serviços', obs:'CA máx 2 para lote <500m².' },
-  'ZEIS-4': { nome:'ZEIS 4 — Glebas em Mananciais',                    ca_min:null, ca_basico:1, ca_maximo:2,   to_500:0.70, to_500p:0.50, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:false, usos:'HIS mín.80% — áreas de risco ou mananciais', obs:'CA máx 1 para lote <1.000m². Legislação estadual quando mais restritiva.' },
-  'ZEIS-5': { nome:'ZEIS 5 — Imóveis Não Utilizados em Eixos',         ca_min:0.5,  ca_basico:1, ca_maximo:4,   to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', fruicao:true,  usos:'HIS mín.40% + não-residencial máx.60%', obs:'CA máx 2 para lote <1.000m².' },
+  'ZEUP':   { nome:'ZEU Predominantemente Residencial', ca_min:0.5, ca_basico:1, ca_maximo:2, to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'Dispensado se passeio≥5m — senão 5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:32, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PA', taxa_perm_min:null, usos:'TODOS EXCETO: nRa-6; Ind-2', obs:'CA máx 2 na ZEUP. Quando ativada por decreto passa a receber parâmetros de ZEU (CA máx 4). Verificar ativação (Lei 18.177/24 Art.3º).' },
 
-  // ── ZONAS INDUSTRIAIS / DESENVOLVIMENTO ──────────────────────────────────
-  'ZDE-1':  { nome:'Zona de Desenvolvimento Econômico 1',              ca_min:0.5,  ca_basico:1, ca_maximo:2,   to_500:0.70, to_500p:0.70, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Indústria, logística, comércio atacadista, P&D', obs:'' },
-  'ZDE-2':  { nome:'Zona de Desenvolvimento Econômico 2',              ca_min:0.5,  ca_basico:1, ca_maximo:2,   to_500:0.70, to_500p:0.50, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Indústria não incômoda, logística, comércio', obs:'' },
-  'ZPI-1':  { nome:'Zona Predominantemente Industrial 1',              ca_min:0.5,  ca_basico:1, ca_maximo:1.5, to_500:0.70, to_500p:0.70, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Industrial, logístico, comércio atacadista', obs:'' },
-  'ZPI-2':  { nome:'Zona Predominantemente Industrial 2',              ca_min:null, ca_basico:1, ca_maximo:1.5, to_500:0.50, to_500p:0.30, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Industrial, logístico, P&D', obs:'Em MZPRA: TO máx 0,50 e lote mín 5.000m².' },
+  'ZEUPa':  { nome:'ZEU Predominantemente Residencial Ambiental', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.70, to_500p:0.50, gabarito:'28m', recuo_frente:'Dispensado se passeio≥5m — senão 5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:32, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PA', taxa_perm_min:null, usos:'TODOS EXCETO: nRa-6; Ind-1b; Ind-2', obs:'CA máx 1. Quando ativada recebe parâmetros de ZEUa (CA máx 2).' },
 
-  // ── ZONAS DE PRESERVAÇÃO ─────────────────────────────────────────────────
-  'ZPR':    { nome:'Zona Predominantemente Residencial',               ca_min:0.05, ca_basico:1, ca_maximo:1,   to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Predominantemente residencial + comércio/serviço local', obs:'Restrições convencionais de loteamento prevalecem quando mais restritivas.' },
-  'ZER-1':  { nome:'Zona Exclusivamente Residencial 1',                ca_min:0.05, ca_basico:1, ca_maximo:1,   to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Exclusivamente residencial unifamiliar', obs:'ZER não pode receber parâmetros menos restritivos (Lei 18.081/24 Art.1º). Restrições convencionais prevalecem.' },
-  'ZER-2':  { nome:'Zona Exclusivamente Residencial 2',                ca_min:0.05, ca_basico:1, ca_maximo:1,   to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Exclusivamente residencial', obs:'Permite HIS. ZER não recebe ZEU.' },
-  'ZERa':   { nome:'Zona Exclusivamente Residencial Ambiental',        ca_min:null, ca_basico:1, ca_maximo:1,   to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Exclusivamente residencial — área ambiental', obs:'' },
-  'ZPDS':   { nome:'Zona de Preservação e Desenvolvimento Sustentável',ca_min:null, ca_basico:1, ca_maximo:1,   to_500:0.35, to_500p:0.25, gabarito:'20m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Residencial e usos compatíveis com preservação ambiental', obs:'' },
-  'ZPDSr':  { nome:'ZPDS Restrita',                                    ca_min:null, ca_basico:0.2,ca_maximo:0.2, to_500:0.20, to_500p:0.15, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Preservação com uso restrito', obs:'Alta restrição ambiental.' },
-  'ZEPAM':  { nome:'Zona Especial de Proteção Ambiental',              ca_min:null, ca_basico:0.1,ca_maximo:0.1, to_500:0.10, to_500p:0.10, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'N/A', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Proteção de áreas verdes e recursos hídricos', obs:'Máxima restrição. Consultar SVMA.' },
+  'ZEM':    { nome:'Zona de Estruturação Metropolitana', ca_min:0.5, ca_basico:1, ca_maximo:2, to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'Dispensado se passeio≥5m — senão 5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'20m²/un', cota_garagem_max:32, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PA', taxa_perm_min:null, usos:'TODOS EXCETO: nRa-6; Ind-2', obs:'CA máx 2 na ZEM. CA máx será 4 nos casos do §1º do Art.8º desta lei (nota d).' },
 
-  // ── ÁREAS PÚBLICAS E DEMAIS ────────────────────────────────────────────────
-  'AC-1':   { nome:'Área de Clubes 1',                                  ca_min:null, ca_basico:0.6,ca_maximo:0.6, to_500:0.60, to_500p:0.60, gabarito:'20m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Clubes esportivos e de lazer', obs:'' },
-  'AC-2':   { nome:'Área de Clubes 2',                                  ca_min:null, ca_basico:0.4,ca_maximo:0.4, to_500:0.40, to_500p:0.40, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', fruicao:false, usos:'Clubes de lazer — porte menor', obs:'' },
-  'ZOE':    { nome:'Zona de Ocupação Especial',                         ca_min:null, ca_basico:1,  ca_maximo:'(Decreto)', to_500:null, to_500p:null, gabarito:'(Decreto)', recuo_frente:'(Decreto)', recuo_lat_ate10:'(Decreto)', recuo_lat_sup10:'(Decreto)', cota_terreno:'N/A', fruicao:false, usos:'Definido por decreto específico', obs:'Parâmetros definidos caso a caso. Consultar SMUL.' },
+  'ZEMP':   { nome:'Zona de Estruturação Metropolitana Predomin. Residencial', ca_min:0.5, ca_basico:1, ca_maximo:2, to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'Dispensado se passeio≥5m — senão 5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'40m²/un', cota_garagem_max:32, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PA', taxa_perm_min:null, usos:'TODOS EXCETO: nRa-6; Ind-2', obs:'CA máx 2 na ZEMP. CA máx será 4 nos casos do §2º do Art.8º desta lei (nota e).' },
+
+  // ══ ZONAS DE QUALIFICAÇÃO ════════════════════════════════════════════════════
+  'ZC':     { nome:'Zona Centralidade', ca_min:0.3, ca_basico:1, ca_maximo:2, to_500:0.85, to_500p:0.70, gabarito:'48m', recuo_frente:'5m (dispensado se passeio≥5m)', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PB', taxa_perm_min:0.15, usos:'TODOS EXCETO: R2v-4; nRa-6; Ind-2', obs:'Em lotes em ZEU: ZC recebe parâmetros de ZEU (Lei 18.177/24 Art.3º VII). Gabarito 48m fora de eixos.' },
+
+  'ZCa':    { nome:'Zona Centralidade Ambiental', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.70, to_500p:0.70, gabarito:'20m', recuo_frente:'5m (dispensado se passeio≥5m)', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:true, fachada_ativa_min:0.50, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.25, usos:'TODOS EXCETO: R2v-4; nRa-6; Ind-1b; Ind-2', obs:'' },
+
+  'ZC-ZEIS':{ nome:'Zona Centralidade — ZEIS', ca_min:0.5, ca_basico:1, ca_maximo:2, to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:null, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PC', taxa_perm_min:0.15, usos:'TODOS EXCETO: R2h-3; R2v-1; R2v-2; R2v-3; R2v-4; EHMP; nRa-6; Ind-2', obs:'Zona que combina características de ZC com ZEIS. FA mín 20%.' },
+
+  'ZCOR-1': { nome:'Zona Corredor Regional 1', ca_min:0.05, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:null, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PB', taxa_perm_min:0.30, usos:'R1; R2h-1; R2h-2; R2h-3; R2v-1; EHIS; EHMP; nRa-1; nRa-2; nRa-5; nR1-5; nR1-6; nR1-10; nR1-12; nR1-13; nR2-7; nR2-8', obs:'Prevalece taxa de permeabilidade=0,30. (f) Proibido: albergue, flats, apart hotel, hotel, motel, pensão, ensino a distância/supletivo. (g) Em ZCOR-1 e ZCOR-2 em ZEPEC/AUE nas Subpref. Sé/Lapa/Pinheiros: proibido nR1-2, nR1-13 e buffet/cinema/teatro.' },
+
+  'ZCOR-2': { nome:'Zona Corredor Regional 2', ca_min:0.05, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:null, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PB', taxa_perm_min:0.30, usos:'R1; R2h-1; R2h-2; R2h-3; R2v-1; EHIS; EHMP; nRa-1; nRa-2; nRa-5; nR1 (exceto nR1-14 e nR1-16); nR2-5; nR2-7; nR2-8; nR2-9', obs:'Prevalece taxa de permeabilidade=0,30. (f) Proibido: albergue, flats, hotel, motel, pensão, ensino a distância. (g) Em ZEPEC/AUE Sé/Lapa/Pinheiros: proibido nR1-2, nR1-13 e buffet/cinema/teatro.' },
+
+  'ZCOR-3': { nome:'Zona Corredor Regional 3', ca_min:0.05, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:null, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PB', taxa_perm_min:0.30, usos:'R (exceto R2v-3 e R2v-4); nRa-1; nRa-2; nRa-5; nR1 (exceto nR1-16); nR2 (exceto nR2-15)', obs:'Prevalece taxa de permeabilidade=0,30. (f) Proibido: albergue, flats, hotel, motel, pensão, ensino a distância.' },
+
+  'ZCORa':  { nome:'Zona Corredor Regional Ambiental', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.30, usos:'R (exceto R2v-3 e R2v-4); nRa (exceto nRa-6); nR1 (exceto nR1-16); nR2 (exceto nR2-15); Ind-1a-6', obs:'Prevalece taxa de permeabilidade=0,30. Macrozona de proteção ambiental.' },
+
+  'ZM':     { nome:'Zona Mista', ca_min:0.3, ca_basico:1, ca_maximo:2, to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'5m (dispensado se passeio≥5m)', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PB', taxa_perm_min:0.15, usos:'R (exceto R2v-4); nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b', obs:'' },
+
+  'ZMa':    { nome:'Zona Mista Ambiental', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.70, to_500p:0.50, gabarito:'15m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.25, usos:'R (exceto R2v-4); nRa (exceto nRa-6); nR1; nR2; nR3 (exceto nR3-1; nR3-4; nR3-5; nR3-6); Ind-1a (exceto Ind-1a-6); Ind-1b-2; Ind-1b-3', obs:'' },
+
+  'ZMIS':   { nome:'Zona Mista Industrial Simplificada', ca_min:0.3, ca_basico:1, ca_maximo:2, to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:null, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PB', taxa_perm_min:0.15, usos:'R1; R2h-1; R2f-2; EHIS; nRa (exceto nRa-6); nR1; nR2; nR3 (exceto nR3-4; nR3-5; nR3-6); Ind-1a; Ind-1b', obs:'Zona mista com permissão de atividades industriais simplificadas.' },
+
+  'ZMISa':  { nome:'Zona Mista Industrial Simplificada Ambiental', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.70, to_500p:0.50, gabarito:'15m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.25, usos:'R1; R2h-1; R2h-2; EHIS; nRa (exceto nRa-6); nR1; nR2; nR3 (exceto nR3-4; nR3-5; nR4-6); Ind-1a; Ind-1b-2; Ind-1b-3', obs:'Macrozona de proteção ambiental.' },
+
+  // ══ ZEIS ══════════════════════════════════════════════════════════════════════
+  'ZEIS-1': { nome:'ZEIS 1 — Assentamentos Precários', ca_min:0.5, ca_basico:1, ca_maximo:2.5, to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PC', taxa_perm_min:0.10, usos:'R; nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b', obs:'CA máx = 2 se lote < 1.000m². Favelas e loteamentos irregulares.' },
+
+  'ZEIS-2': { nome:'ZEIS 2 — Lotes para HIS/HMP', ca_min:0.5, ca_basico:1, ca_maximo:4, to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PC', taxa_perm_min:0.10, usos:'R; nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b', obs:'CA máx = 2 se lote < 1.000m².' },
+
+  'ZEIS-3': { nome:'ZEIS 3 — Áreas Dotadas de Infraestrutura', ca_min:0.5, ca_basico:1, ca_maximo:4, to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PC', taxa_perm_min:0.10, usos:'R; nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b', obs:'CA máx = 2 se lote < 500m².' },
+
+  'ZEIS-4': { nome:'ZEIS 4 — Glebas em Mananciais', ca_min:0, ca_basico:1, ca_maximo:2, to_500:0.70, to_500p:0.50, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.15, usos:'R; nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a (exceto Ind-1a-7)', obs:'CA máx = 1 se lote < 1.000m². Legislação estadual de mananciais prevalece.' },
+
+  'ZEIS-5': { nome:'ZEIS 5 — Imóveis Não Utilizados em Eixos', ca_min:0.5, ca_basico:1, ca_maximo:4, to_500:0.85, to_500p:0.70, gabarito:'Livre', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:true, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:0.10, ben_nr_misto_pct:0.20, cota_solidariedade:{facultativa:true,obrigatorio_acima_m2:20000,acrescimo_pct:0.20,contrapartida:'10% da área computável em HIS'}, qa_categoria:'PC', taxa_perm_min:0.10, usos:'R; nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b', obs:'CA máx = 2 se lote < 1.000m².' },
+
+  // ══ ZONAS INDUSTRIAIS / DESENVOLVIMENTO ════════════════════════════════════════
+  'ZDE-1':  { nome:'Zona de Desenvolvimento Econômico 1', ca_min:0.5, ca_basico:1, ca_maximo:2, to_500:0.70, to_500p:0.70, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.15, usos:'R (exceto R2v-3; R2v-4; EHMP); nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b', obs:'' },
+
+  'ZDE-2':  { nome:'Zona de Desenvolvimento Econômico 2', ca_min:0.5, ca_basico:1, ca_maximo:2, to_500:0.70, to_500p:0.50, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.15, usos:'R1; R2h-1; R2h-2; EHIS; nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b; Ind-2 (exceto Ind-2-15)', obs:'' },
+
+  'ZPI-1':  { nome:'Zona Predominantemente Industrial 1', ca_min:0.5, ca_basico:1, ca_maximo:1.5, to_500:0.70, to_500p:0.70, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.15, usos:'R1; R2H-1; R2H-2; EHIS; nRa (exceto nRa-6); nR1; nR2; nR3 (exceto nR3-2); Ind-1a; Ind-1b; Ind-2', obs:'' },
+
+  'ZPI-2':  { nome:'Zona Predominantemente Industrial 2', ca_min:0, ca_basico:1, ca_maximo:1.5, to_500:0.50, to_500p:0.30, gabarito:'28m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.15, usos:'R1; R2H-1; R2H-2; EHIS; nRa (exceto nRa-6); nR1; nR2; nR3; Ind-1a; Ind-1b; Ind-2', obs:'' },
+
+  // ══ ZONAS DE PRESERVAÇÃO ══════════════════════════════════════════════════════
+  'ZPR':    { nome:'Zona Predominantemente Residencial', ca_min:0.05, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:0.50, ben_hmp_pct:0.25, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.30, usos:'R1; R2h-1; R2h-2; R2h-3; R2v-1; nRa (exceto nRa-6); nR1 (exceto nR1-13; nR1-14; nR1-15; nR1-16); nR2-8; nR2-9', obs:'Prevalece taxa de permeabilidade=0,30. Restrições convencionais de loteamento prevalecem quando mais restritivas.' },
+
+  'ZER-1':  { nome:'Zona Exclusivamente Residencial 1', ca_min:0.05, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.30, usos:'R1; R2h-1; R2h-2; R2h-3; nRa-5; nR1-10; nR1-13(c); nR2-11(c)', obs:'Prevalece taxa de permeabilidade=0,30. (c) Somente museu com possibilidade de usos comerciais/serviços associados. ZER não recebe parâmetros menos restritivos (Lei 18.081/24).' },
+
+  'ZER-2':  { nome:'Zona Exclusivamente Residencial 2', ca_min:0.05, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:0.50, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.30, usos:'R1; R2h-1; R2h-2; R2h-3; nRa-5; nR1-10; nR1-13(c); nR2-11(c)', obs:'Prevalece taxa de permeabilidade=0,30. (c) Somente museu. ZER não recebe parâmetros de ZEU.' },
+
+  'ZERa':   { nome:'Zona Exclusivamente Residencial Ambiental', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.50, to_500p:null, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.30, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.30, usos:'R1; R2h-1; R2h-2; R2h-3; nRa-5; nR1-10; nR1-13(c); nR2-11(c)', obs:'Prevalece taxa de permeabilidade=0,30. (c) Somente museu.' },
+
+  'ZPDS':   { nome:'Zona de Preservação e Desenvolvimento Sustentável', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.35, to_500p:0.25, gabarito:'20m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.50, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.50, usos:'R1; R2h-1; R2h-2; nRa; nR1 (exceto nR1-1); nR2 (exceto nR2-12 e nR2-15); Ind-1a; Ind-2-15', obs:'Prevalece taxa de permeabilidade=0,50.' },
+
+  'ZPDSr':  { nome:'ZPDS Restrita', ca_min:0, ca_basico:0.2, ca_maximo:0.2, to_500:0.20, to_500p:0.15, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.70, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.70, usos:'R1; R2h-1; nRa; nR1-3; nR1-4; nR1-10; nR1-11; nR1-13; nR1-14; nR1-15; nR1-16; nR2-4; Ind-1a-6; Ind-2-15', obs:'Prevalece taxa de permeabilidade=0,70. Alta restrição ambiental.' },
+
+  'ZEPAM':  { nome:'Zona Especial de Proteção Ambiental', ca_min:0, ca_basico:0.1, ca_maximo:0.1, to_500:0.10, to_500p:0.10, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:0.90, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.90, usos:'R1; R2h-1; nRa; nR1-10', obs:'Prevalece taxa de permeabilidade=0,90. Máxima restrição. (k) Em parques: usos comerciais/serviços condicionados à aprovação do órgão ambiental e CADES.' },
+
+  // ══ ÁREAS VERDES PÚBLICAS E ESPECIAIS ══════════════════════════════════════════
+  'AVP-1':  { nome:'Área Verde Pública 1', ca_min:0, ca_basico:'(Art.30)', ca_maximo:'(Art.30)', to_500:'(Art.30)', to_500p:'(Art.30)', gabarito:'28m', recuo_frente:'Dispensado', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:null, usos:'nRa (exceto nRa-4 e nRa-6); nR1-10', obs:'Parâmetros definidos pelo Art.30 da Lei 16.402/16. Consultar SMUL/SVMA.' },
+
+  'AVP-2':  { nome:'Área Verde Pública 2', ca_min:0, ca_basico:1, ca_maximo:1, to_500:0.30, to_500p:0.30, gabarito:'28m', recuo_frente:'Dispensado', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PC', taxa_perm_min:0.40, usos:'nRa (exceto nRa-4 e nRa-6); nR1-10; nR2-8; nR3-1; nR3-3', obs:'' },
+
+  'Ai':     { nome:'Área Institucional', ca_min:0, ca_basico:1, ca_maximo:4, to_500:0.85, to_500p:0.70, gabarito:'28m', recuo_frente:'Dispensado', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.15, usos:'nRa (exceto nRa-4 e nRa-6); nR1-10; nR1-11; nR2-8; nR2-9; nR3-3', obs:'Destinada a equipamentos institucionais públicos.' },
+
+  'Ala':    { nome:'Área de Lazer', ca_min:0, ca_basico:1, ca_maximo:2, to_500:0.50, to_500p:0.50, gabarito:'15m', recuo_frente:'Dispensado', recuo_lat_ate10:'Dispensado', recuo_lat_sup10:'3m (dispensável)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.20, usos:'nRa (exceto nRa-4 e nRa-6); nR1-10; nR1-11; nR2-8; nR2-9; nR3-3', obs:'Destinada a usos de lazer e recreação.' },
+
+  // ══ ÁREAS DE CLUBES ════════════════════════════════════════════════════════════
+  'AC-1':   { nome:'Área de Clubes 1', ca_min:0, ca_basico:0.6, ca_maximo:0.6, to_500:0.60, to_500p:0.60, gabarito:'20m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.15, usos:'nRa (exceto nRa-4 e nRa-6); nR1 (exceto nR1-1;nR1-3;nR1-7;nR1-11;nR1-14;nR1-15); nR2-1;nR2-6;nR2-7;nR2-8;nR2-10;nR2-11;nR2-15', obs:'' },
+
+  'AC-2':   { nome:'Área de Clubes 2', ca_min:0, ca_basico:0.4, ca_maximo:0.4, to_500:0.40, to_500p:0.40, gabarito:'10m', recuo_frente:'5m', recuo_lat_ate10:'3m', recuo_lat_sup10:'3m', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:0.20, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:'PB', taxa_perm_min:0.15, usos:'nRa (exceto nRa-4 e nRa-6); nR1 (exceto nR1-1;nR1-3;nR1-7;nR1-11;nR1-14;nR1-15); nR2-1;nR2-6;nR2-7;nR2-8;nR2-10;nR2-11;nR2-15', obs:'' },
+
+  'ZOE':    { nome:'Zona de Ocupação Especial', ca_min:null, ca_basico:1, ca_maximo:'(Decreto)', to_500:null, to_500p:null, gabarito:'(Decreto)', recuo_frente:'(Decreto)', recuo_lat_ate10:'(Decreto)', recuo_lat_sup10:'(Decreto)', cota_terreno:'N/A', cota_garagem_max:null, fruicao:false, fachada_ativa_min:null, taxa_perm_prev:null, ben_his_pct:null, ben_hmp_pct:null, ben_sem_vaga_pct:null, ben_nr_misto_pct:null, cota_solidariedade:null, qa_categoria:null, taxa_perm_min:null, usos:'Definido por decreto específico', obs:'Parâmetros definidos caso a caso. Consultar SMUL.' },
 };
 
-const EIXO_PARAMS = { ca_maximo:4.0, to:0.70, ta_min:0.25, cota_terreno:'12m²/un', fruicao:true, obs_extra:'Lote em Eixo de Estruturação: CA máximo 4,0 via OODC. Fruição pública nas faixas do alinhamento. Quota ambiental exigida (Dec. 57.776/17).' };
+const EIXO_PARAMS = { ca_maximo:4.0, to_500:0.85, to_500p:0.70, cota_terreno:'20m²/un', fruicao:true, fachada_ativa_min:0.50, qa_categoria:'PA', taxa_perm_min:null, obs_extra:'Eixo de Estruturação: CA máx 4 via OODC. Fruição pública obrigatória (passeio 5m). Fachada ativa mín 50%. Quota Ambiental obrigatória (Dec. 57.776/17).' };
 const OU_PARAMS = {
-  'OUCBT': { nome:'OU Consorciada Bairros do Tamanduateí', ca_max_ou:4.0, obs:'CA acima do básico requer CEPAC. Parâmetros por setor da OUCBT.' },
+  'OUCBT': { nome:'OU Consorciada Bairros do Tamanduateí', ca_max_ou:4.0, obs:'CA acima do básico requer CEPAC. Parâmetros por setor.' },
   'OUCAB': { nome:'OU Consorciada Água Branca', ca_max_ou:4.0, obs:'Lei 15.893/2013. CEPAC necessário para CA acima do básico.' },
   'OUCFL': { nome:'OU Consorciada Faria Lima', ca_max_ou:4.0, obs:'CEPAC obrigatório. Gabarito máximo por setor.' },
   'OUC':   { nome:'Operação Urbana Centro', ca_max_ou:6.0, obs:'Área central histórica. Incentivos para retrofit.' },
   'OUFL':  { nome:'Operação Urbana Faria Lima', ca_max_ou:4.0, obs:'Vinculada à Lei 11.732/1995.' },
 };
+
+// ── Calcula CA com todos os benefícios possíveis ─────────────────────────────
+function calcCAComBeneficios(params, caMaxOuOverride) {
+  const caMax = caMaxOuOverride || (typeof params.ca_maximo === 'number' ? params.ca_maximo : 0);
+  if (!caMax) return null;
+  const cs   = params.cota_solidariedade?.acrescimo_pct || 0;
+  const his  = params.ben_his_pct  || 0;
+  const hmp  = params.ben_hmp_pct  || 0;
+  const svag = params.ben_sem_vaga_pct || 0;
+  const nr   = params.ben_nr_misto_pct || 0;
+  return {
+    ca_base:      caMax,
+    ca_cs:        parseFloat((caMax*(1+cs)).toFixed(2)),
+    ca_his:       parseFloat((caMax*(1+his)).toFixed(2)),
+    ca_hmp:       parseFloat((caMax*(1+hmp)).toFixed(2)),
+    ca_sem_vaga:  parseFloat((caMax*(1+svag)).toFixed(2)),
+    ca_cs_nr:     parseFloat((caMax*(1+cs+nr)).toFixed(2)),
+    ca_his_cs:    parseFloat((caMax*(1+his+cs)).toFixed(2)),
+    ca_hmp_cs:    parseFloat((caMax*(1+hmp+cs)).toFixed(2)),
+    ca_max_all:   parseFloat((caMax*(1+his+cs+svag+nr)).toFixed(2)),
+  };
+}
+
+// ── Mínimo de UH por cota parte ──────────────────────────────────────────────
+function calcMinUH(areaTerreno, caMaxComBen, cotaPartePorUH) {
+  if (!areaTerreno || !caMaxComBen || !cotaPartePorUH) return null;
+  return Math.ceil((areaTerreno * caMaxComBen) / cotaPartePorUH);
+}
 
 // ══════════════════════════════════════════════════════════════════
 // GERA RELATÓRIO URBANÍSTICO
@@ -1724,82 +1794,173 @@ async function _runReport(features) {
       const params = ZONEAMENTO_PARAMS[code];
       const ou     = ous.length>0 ? ous[0] : null;
       const ouInfo = ou ? OU_PARAMS[ou.sg_operacao_urbana] : null;
-      let caMax = params ? params.ca_maximo : '—';
-      let fruicao = (params && params.fruicao) || emEixo;
-      let obsExtra = '';
-      if (emEixo) { caMax = EIXO_PARAMS.ca_maximo; fruicao = true; obsExtra = EIXO_PARAMS.obs_extra; }
+
+      // ── Determina CA efetivo (eixo > OU > zona) ──
+      let caMax     = params ? params.ca_maximo : '—';
+      let fruicao   = (params && params.fruicao) || emEixo;
+      let fachadaMin= params?.fachada_ativa_min || null;
+      let qaCateg   = params?.qa_categoria || null;
+      let taxaPerm  = params?.taxa_perm_min || null;
+      let obsExtra  = '';
+
+      if (emEixo) {
+        caMax      = EIXO_PARAMS.ca_maximo;
+        fruicao    = true;
+        fachadaMin = EIXO_PARAMS.fachada_ativa_min;
+        qaCateg    = EIXO_PARAMS.qa_categoria;
+        taxaPerm   = EIXO_PARAMS.taxa_perm_min;
+        obsExtra   = EIXO_PARAMS.obs_extra;
+      }
       if (ouInfo) { caMax = ouInfo.ca_max_ou; obsExtra += (obsExtra?' ':'')+ouInfo.obs; }
 
+      // ── Benefícios de CA ──────────────────────────
+      const bens = params ? calcCAComBeneficios(params, typeof caMax==='number'?caMax:null) : null;
+
+      // ── Header da zona ────────────────────────────
       html += `<div class="report-section">
         <div class="report-section-title" style="font-size:10px;padding:10px 12px">
           <span class="report-zone-badge" style="font-size:11px;padding:3px 8px">🏙 ${code}</span>
           &nbsp;${params ? params.nome : 'Zona não catalogada'}
+          ${emEixo?'<span class="report-eixo-tag" style="margin-left:8px">EIXO</span>':''}
+          ${ou?`<span class="report-ou-tag" style="margin-left:4px">${ou.sg_operacao_urbana}</span>`:''}
         </div>
       </div>`;
 
       if (params) {
-        // Potencial construtivo
+        // ── 1. Coeficiente de Aproveitamento ─────────
         html += `<div class="report-section">
-          <div class="report-section-title">Potencial Construtivo — Quadro 3</div>
+          <div class="report-section-title">Coeficiente de Aproveitamento</div>
           <table class="report-table">
             <tr><td>CA Mínimo</td><td>${fNA(params.ca_min)}</td></tr>
             <tr><td>CA Básico</td><td>${fCA(params.ca_basico)}</td></tr>
-            <tr><td>CA Máximo${emEixo?' <span style="font-size:9px;color:var(--kv-blue)">(Eixo)</span>':ouInfo?' <span style="font-size:9px;color:var(--warn)">(OU)</span>':''}</td><td>${fCA(caMax)}</td></tr>
-            <tr><td>TO — lote ≤500m²</td><td>${params.to_500!==null?fPct(params.to_500):'<span style="color:var(--muted)">—</span>'}</td></tr>
-            <tr><td>TO — lote >500m²</td><td>${params.to_500p!==null?fPct(params.to_500p):'<span style="color:var(--muted)">—</span>'}</td></tr>
-            <tr><td>Gabarito Máximo</td><td>${fStr(params.gabarito)}</td></tr>
-            <tr><td>Cota Terreno / Unidade</td><td>${fStr(params.cota_terreno)}</td></tr>
+            <tr><td>CA Máximo da Zona${emEixo?' <span style="font-size:9px;color:var(--kv-blue)">(Eixo)</span>':ouInfo?' <span style="font-size:9px;color:var(--warn)">(OU)</span>':''}</td><td>${fCA(caMax)}</td></tr>
           </table>
-          <div class="report-note">CA Básico: sem OODC. CA Máximo: via Outorga Onerosa (OODC) ou CEPAC em OUC.</div>
+          <div class="report-note">CA Básico: construtibilidade sem pagamento de OODC. CA Máximo: via Outorga Onerosa ou CEPAC em OUC.</div>
         </div>`;
 
-        // Recuos
+        // ── 2. Benefícios de CA ───────────────────────
+        if (bens && params.ben_his_pct) {
+          const cs = params.cota_solidariedade;
+          html += `<div class="report-section">
+            <div class="report-section-title">Benefícios — Acréscimos ao CA Máximo</div>
+            <table class="report-table">
+              ${params.ben_his_pct?`<tr><td>Benefício 50% HIS (EHIS/EZEIS)</td><td>${fCA(bens.ca_his)} <span style="font-size:9px;color:var(--muted)">(+${(params.ben_his_pct*100).toFixed(0)}%)</span></td></tr>`:''}
+              ${params.ben_hmp_pct?`<tr><td>Benefício 25% HMP (EZEIS)</td><td>${fCA(bens.ca_hmp)} <span style="font-size:9px;color:var(--muted)">(+${(params.ben_hmp_pct*100).toFixed(0)}%)</span></td></tr>`:''}
+              ${params.ben_sem_vaga_pct?`<tr><td>Incentivo empreend. sem vagas</td><td>${fCA(bens.ca_sem_vaga)} <span style="font-size:9px;color:var(--muted)">(+${(params.ben_sem_vaga_pct*100).toFixed(0)}%)</span></td></tr>`:''}
+              ${params.ben_nr_misto_pct?`<tr><td>nR Incentivado (uso misto + fachada ativa)</td><td>+${(params.ben_nr_misto_pct*100).toFixed(0)}% área comp.</td></tr>`:''}
+              ${cs?`<tr><td>Cota de Solidariedade (${cs.facultativa?'facultativa':'obrigatória'})</td><td>${fCA(bens.ca_cs)} <span style="font-size:9px;color:var(--muted)">(+${(cs.acrescimo_pct*100).toFixed(0)}%)</span></td></tr>`:''}
+              ${cs?`<tr><td>CA máx. com HIS + CS</td><td><span class="report-val-highlight">${fCA(bens.ca_his_cs)}</span></td></tr>`:''}
+              ${cs?`<tr><td>CA máx. com HMP + CS</td><td>${fCA(bens.ca_hmp_cs)}</td></tr>`:''}
+            </table>
+            ${cs?`<div class="report-note">Cota de Solidariedade: ${cs.facultativa?'facultativa para qualquer empreendimento':'obrigatória'}${cs.obrigatorio_acima_m2?`, obrigatória se área computável > ${(cs.obrigatorio_acima_m2/1000).toFixed(0)}.000m²`:''}.
+            Contrapartida: ${cs.contrapartida}.
+            ${cs.facultativa&&cs.obrigatorio_acima_m2?'Pode ser paga financeiramente ao FUNDURB.':''}</div>`:''}
+          </div>`;
+        }
+
+        // ── 3. TO, Gabarito, Cota Parte ──────────────
         html += `<div class="report-section">
-          <div class="report-section-title">Recuos Obrigatórios — Quadro 3</div>
+          <div class="report-section-title">Taxa de Ocupação, Gabarito e Cota Parte</div>
           <table class="report-table">
+            <tr><td>TO Máxima — lote ≤500m²</td><td>${params.to_500!==null?fPct(params.to_500):'<span style="color:var(--muted)">—</span>'}</td></tr>
+            <tr><td>TO Máxima — lote >500m²</td><td>${params.to_500p!==null?fPct(params.to_500p):'<span style="color:var(--muted)">—</span>'}</td></tr>
+            <tr><td>Gabarito Máximo</td><td>${fStr(params.gabarito)}</td></tr>
+            <tr><td>Cota de Terreno / Unidade</td><td>${fStr(params.cota_terreno)}</td></tr>
+            ${params.cota_garagem_max?`<tr><td>Cota Garagem Máxima</td><td>${params.cota_garagem_max}m²/vaga</td></tr>`:''}
+            ${fachadaMin?`<tr><td>Fachada Ativa Mínima</td><td><span class="report-val-highlight">${(fachadaMin*100).toFixed(0)}%</span></td></tr>`:''}
+          </table>
+        </div>`;
+
+        // ── 4. Simulação Cota Parte / Mín. UH ────────
+        if (params.cota_terreno && params.cota_terreno !== 'N/A' && bens) {
+          const cotaNum = parseFloat(params.cota_terreno);
+          if (!isNaN(cotaNum) && bens.ca_his_cs) {
+            html += `<div class="report-section">
+              <div class="report-section-title">Cota Parte — Simulação Mínimo de UH</div>
+              <table class="report-table">
+                <tr><td>Cota Parte / UH</td><td>CA Máximo Zona</td><td style="text-align:right">CA c/ HIS+CS</td></tr>
+                ${[20,25,30,40].map(cp=>`<tr><td>${cp}m²/un</td><td style="color:var(--kv-blue)">${calcMinUH(900,typeof caMax==='number'?caMax:bens.ca_base,cp)||'—'} UH (ref.900m²)</td><td style="text-align:right">${calcMinUH(900,bens.ca_his_cs,cp)||'—'} UH c/ben.</td></tr>`).join('')}
+              </table>
+              <div class="report-note">Simulação baseada em lote de referência de 900m². Calcule com a área real do terreno.</div>
+            </div>`;
+          }
+        }
+
+        // ── 5. Calçada, Recuos, Fruição ──────────────
+        html += `<div class="report-section">
+          <div class="report-section-title">Calçada e Recuos Obrigatórios — Quadro 3</div>
+          <table class="report-table">
+            <tr><td>Doação/Reserva de Calçada</td><td><span class="report-val-highlight">Obrigatório</span></td></tr>
             <tr><td>Recuo de Frente</td><td>${fStr(params.recuo_frente)}</td></tr>
             <tr><td>Lat. / Fundos (h ≤10m)</td><td>${fStr(params.recuo_lat_ate10)}</td></tr>
             <tr><td>Lat. / Fundos (h >10m)</td><td>${fStr(params.recuo_lat_sup10)}</td></tr>
             <tr><td>Fruição Pública</td><td>${fruicao?'<span class="report-val-warn">Exigida / Incentivada</span>':'<span style="color:var(--muted)">Não exigida</span>'}</td></tr>
-            <tr><td>Quota Ambiental</td><td>${emEixo?'<span class="report-val-highlight">Obrigatória — Dec. 57.776/17</span>':'<span style="color:var(--muted)">Verificar aplicabilidade</span>'}</td></tr>
           </table>
           <div class="report-note">Art.66: recuos lat./fundos h>10m dispensáveis (parede cega ou acordo). Art.67: recuo frontal dispensado se passeio ≥5m em ZEU, ZC, ZM, ZEIS.</div>
         </div>`;
 
-        // Usos
+        // ── 6. Qualificação Ambiental / Quota ────────
         html += `<div class="report-section">
-          <div class="report-section-title">Usos Permitidos</div>
-          <table class="report-table"><tr><td style="color:var(--text);font-size:11px" colspan="2">${params.usos}</td></tr></table>
+          <div class="report-section-title">Qualificação Ambiental e Permeabilidade</div>
+          <table class="report-table">
+            <tr><td>Categoria Qualificação Ambiental</td><td>${qaCateg?`<span class="report-val-highlight">${qaCateg}</span>`:'<span style="color:var(--muted)">Verificar</span>'}</td></tr>
+            <tr><td>Taxa de Permeabilidade Mín.</td><td>${taxaPerm!==null?fPct(taxaPerm):(emEixo?'<span class="report-val-highlight">Quota Ambiental obrigatória<br>(Dec.57.776/17)</span>':'<span style="color:var(--muted)">Verificar Quota Ambiental</span>')}</td></tr>
+          </table>
+          <div class="report-note">PA=Quota Ambiental obrigatória (ZEU/eixos). PB/PC=Taxa de permeabilidade conforme Quadro 3. Verificar Decreto 57.776/17.</div>
         </div>`;
 
+        // ── 7. Usos Permitidos ────────────────────────
+        html += `<div class="report-section">
+          <div class="report-section-title">Usos Permitidos</div>
+          <div style="padding:8px 12px;font-size:11px;color:var(--text);line-height:1.5">${params.usos}</div>
+          <div class="report-note">Verificar condições de instalação: <a href="https://gestaourbana.prefeitura.sp.gov.br/wp-content/uploads/2016/03/010-QUADRO_4A_FINAL.pdf" target="_blank" style="color:var(--kv-blue)">Quadro 4A LPUOS</a></div>
+        </div>`;
+
+        // ── 8. Obs e Sobreposições ────────────────────
         if (obsExtra || params.obs) {
           html += `<div class="report-section">
             <div class="report-section-title">Observações e Sobreposições</div>
             <div class="report-note" style="border-top:none">${[params.obs, obsExtra].filter(Boolean).join('<br><br>')}</div>
           </div>`;
         }
+
+        // ── 9. Verificações Adicionais (checklist KV) ─
+        html += `<div class="report-section">
+          <div class="report-section-title">Outros Itens — Verificar</div>
+          <table class="report-table">
+            <tr><td>ZEPEC / Bens Tombados</td><td><span class="report-val-warn">Verificar CIT + GeoSampa</span></td></tr>
+            <tr><td>Utilidade Pública (DUP)</td><td><span class="report-val-warn">Verificar Leg. Urbana</span></td></tr>
+            <tr><td>Deliberações CTLU</td><td><span class="report-val-warn">Verificar Leg. Urbana &gt; Zoneamento</span></td></tr>
+            <tr><td>Melhoramento Viário / Faixa N.E.</td><td><span class="report-val-warn">Verificar Infra Urbana</span></td></tr>
+            <tr><td>Gabarito COMAR (aeronáutico)</td><td><span class="report-val-warn">Verificar Dataland / COMAER</span></td></tr>
+            <tr><td>Solo Mole / Restrição Geotécnica</td><td><span class="report-val-warn">Verificar Meio Físico GeoSampa</span></td></tr>
+            <tr><td>Área Contaminada</td><td><span class="report-val-warn">Verificar Licenciamento Ambiental</span></td></tr>
+            <tr><td>Vila / Rua sem Saída</td><td><span class="report-val-warn">Verificar Cadastro Fiscal GeoSampa</span></td></tr>
+          </table>
+        </div>`;
+
       } else {
         html += `<div class="report-alert">⚠ Zona <strong>${code}</strong> não encontrada na tabela local. Consultar SMUL ou Quadro 2 da Lei 16.402/16.</div>`;
       }
     }
 
-    // ── Restrições ────────────────────────────────────────────────
+    // ── Restrições detectadas automaticamente ────────────────────────
     const restricoes = [];
-    if (tombado || envoltoria) restricoes.push('🏛 <strong>Patrimônio Cultural</strong> — imóvel ou entorno tombado/área de envoltória. Aprovação sujeita ao CONPRESP/IPHAN/CONDEPHAAT.');
+    if (tombado || envoltoria) restricoes.push('🏛 <strong>Patrimônio Cultural</strong> — imóvel ou entorno tombado/área de envoltória. Aprovação sujeita ao CONPRESP/IPHAN/CONDEPHAAT. Verificar também no CIT.');
     if (manancial) restricoes.push('💧 <strong>Área de Manancial</strong> — Lei Estadual 9.866/97. Restrições severas de impermeabilização e edificação.');
-    if (risco.length) restricoes.push(`⚠ <strong>Risco Geológico</strong> — ${risco[0]}. Laudo geotécnico obrigatório.`);
-    if (inund) restricoes.push('🌊 <strong>Área Inundável</strong> — verificar cotas. Possível exigência de medidas compensatórias de drenagem.');
+    if (risco.length) restricoes.push(`⚠ <strong>Risco Geológico</strong> — ${risco[0]}. Laudo geotécnico obrigatório. Pode haver impedimento de construção.`);
+    if (inund) restricoes.push('🌊 <strong>Área Inundável</strong> — verificar cotas de inundação. Possível exigência de medidas compensatórias de drenagem.');
 
     if (restricoes.length > 0) {
       html += `<div class="report-section">
-        <div class="report-section-title">⚠ Restrições e Condicionantes</div>
+        <div class="report-section-title">⚠ Restrições e Condicionantes — Detectadas Automaticamente</div>
         <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px">${restricoes.map(r=>`<div class="report-alert">${r}</div>`).join('')}</div>
       </div>`;
     }
 
     html += `<div class="report-footer">
-      Quadro 3 — LPUOS Lei 16.402/16 consolidada · Lei 18.081/24 · Lei 18.177/24<br>
-      Gerado em ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})} · Verificar junto à SMUL<br>
+      Quadro 3 — LPUOS Lei 16.402/16 · Lei 18.081/24 · Lei 18.177/24 · Alinhado ao checklist de Análise Legal KV<br>
+      Gerado em ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})} · <strong>Verificar sempre junto à SMUL/SP</strong><br>
       <span style="color:var(--kv-blue)">Königsberger Vannucchi Arquitetos Associados</span>
     </div>`;
 
