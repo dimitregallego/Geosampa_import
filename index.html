@@ -1556,15 +1556,31 @@ function mergeToSinglePolygon(features) {
   return { type: 'MultiPolygon', coordinates: polys };
 }
 
-// Busca WFS com filtro INTERSECTS(geom, WKT) em vez de BBOX
-async function fetchWFSByGeom(typeId, wkt, maxFeatures) {
+// ── Cache de coluna geométrica por camada ────────────────────────────────
+// Evita tentar colunas erradas repetidamente na mesma sessão.
+// Formato: { 'geoportal:curva_mestra': 'ge_linha', ... }
+const _geomColCache = {};
+
+// ── Detecta ordem de tentativa com base no nome da camada ───────────────
+// GeoSampa usa 3 nomes de coluna: ge_poligono, ge_linha, ge_ponto
+function _guessGeomCols(typeId) {
+  const n = typeId.replace('geoportal:','').toLowerCase();
+  const isLine  = /curva|linha|logradouro|segmento|via_|calcada|calçada|ferr|rio_|corrego|ribeirao|duto|rede_|trilho|limite_|divisoria|faixa|arruamento|passeio/.test(n);
+  const isPoint = /ponto|marco|arvore|cotado|equip|poste|boca_lobo|hidrante|bueiro|lixeira|semaforo|lampiao|camera/.test(n);
+  if (isLine)  return ['ge_linha',   'ge_poligono', 'ge_ponto'];
+  if (isPoint) return ['ge_ponto',   'ge_poligono', 'ge_linha'];
+  return              ['ge_poligono','ge_linha',     'ge_ponto'];
+}
+
+// ── Tentativa única com uma coluna geométrica específica ─────────────────
+async function _fetchWFSWithCol(typeId, wkt, maxFeatures, geomCol) {
   const p = new URLSearchParams({
     service:'WFS', version:'1.1.0', request:'GetFeature',
     typeName:typeId, outputFormat:'application/json',
     maxFeatures:String(maxFeatures), srsName:'EPSG:4326',
-    CQL_FILTER:`INTERSECTS(ge_poligono,${wkt})`,
+    CQL_FILTER:`INTERSECTS(${geomCol},${wkt})`,
   });
-  const raw = `https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?${p}`;
+  const raw = `${WFS_BASE}?${p}`;
   let res;
   try {
     res = await fetch(buildProxiedUrl(raw), { signal: AbortSignal.timeout(20000) });
@@ -1579,12 +1595,44 @@ async function fetchWFSByGeom(typeId, wkt, maxFeatures) {
   try { json = JSON.parse(text); }
   catch(_) {
     if (text.trim().startsWith('<'))
-      throw Object.assign(new Error('Sem dados WFS (raster ou não vetorial)'), { _kind:'nowfs' });
+      throw Object.assign(new Error('coluna não existe'), { _kind:'wfsexc' });
     throw Object.assign(new Error('Resposta inválida'), { _kind:'parse' });
   }
   if (json.exceptions || json.ExceptionReport)
-    throw Object.assign(new Error('WFS exception'), { _kind:'wfsexc' });
+    throw Object.assign(new Error('coluna não existe'), { _kind:'wfsexc' });
   return json;
+}
+
+// ── Busca WFS com INTERSECTS, tentando as colunas geométricas em sequência
+// Caches o nome da coluna que funcionou para evitar re-tentativas na sessão.
+async function fetchWFSByGeom(typeId, wkt, maxFeatures) {
+  // Se já sabemos qual coluna funciona, vai direto
+  if (_geomColCache[typeId]) {
+    return _fetchWFSWithCol(typeId, wkt, maxFeatures, _geomColCache[typeId]);
+  }
+
+  const cols = _guessGeomCols(typeId);
+  let lastErr = null;
+
+  for (const col of cols) {
+    try {
+      const result = await _fetchWFSWithCol(typeId, wkt, maxFeatures, col);
+      _geomColCache[typeId] = col; // cacheia para próximas chamadas
+      return result;
+    } catch(e) {
+      if (e._kind === 'wfsexc') {
+        lastErr = e; // coluna errada → tenta a próxima
+        continue;
+      }
+      throw e; // CORS, timeout, HTTP error → propaga imediatamente
+    }
+  }
+
+  // Nenhuma coluna funcionou — camada sem dados vetoriais WFS (provavelmente raster)
+  throw Object.assign(
+    new Error('Sem dados WFS (raster ou coluna geométrica não identificada)'),
+    { _kind:'nowfs' }
+  );
 }
 
 function setReportStatus(state, msg) {
