@@ -1880,8 +1880,11 @@ async function _runReport(features) {
       const ou     = ous.length>0 ? ous[0] : null;
       const ouInfo = ou ? OU_PARAMS[ou.sg_operacao_urbana] : null;
 
-      // ── Determina CA efetivo (eixo > OU > zona) ──
+      // ── CA do Quadro 3 — IMUTÁVEL, nunca sobrescrito por OU ou Eixo ──────
+      // caMax é sempre o valor do Quadro 3 da zona. A OU (CEPAC) é potencial
+      // adicional adquirível separadamente — exibido como linha informativa.
       let caMax     = params ? params.ca_maximo : '—';
+      let caMaxOU   = ouInfo ? ouInfo.ca_max_ou : null;   // CA via CEPAC (OU)
       let fruicao   = (params && params.fruicao) || emEixo;
       let fachadaMin= params?.fachada_ativa_min || null;
       let qaCateg   = params?.qa_categoria || null;
@@ -1889,16 +1892,20 @@ async function _runReport(features) {
       let obsExtra  = '';
 
       if (emEixo) {
-        caMax      = EIXO_PARAMS.ca_maximo;
+        // Eixo pode elevar o CA máximo da zona para 4 (ex: ZC em ZEU recebe params ZEU)
+        // Só aplica se o CA do eixo for maior que o da zona
+        const caEixo = EIXO_PARAMS.ca_maximo;
+        if (typeof caMax === 'number' && caEixo > caMax) caMax = caEixo;
         fruicao    = true;
         fachadaMin = EIXO_PARAMS.fachada_ativa_min;
         qaCateg    = EIXO_PARAMS.qa_categoria;
         taxaPerm   = EIXO_PARAMS.taxa_perm_min;
         obsExtra   = EIXO_PARAMS.obs_extra;
       }
-      if (ouInfo) { caMax = ouInfo.ca_max_ou; obsExtra += (obsExtra?' ':'')+ouInfo.obs; }
+      // OU: NUNCA sobrescreve caMax — apenas registra para exibição separada
+      if (ouInfo) { obsExtra += (obsExtra?' ':'')+ouInfo.obs; }
 
-      // ── Benefícios de CA ──────────────────────────
+      // ── Benefícios de CA (sempre baseados no CA do Quadro 3) ─────────────
       const bens = params ? calcCAComBeneficios(params, typeof caMax==='number'?caMax:null) : null;
 
       // ── Header da zona ────────────────────────────
@@ -1914,13 +1921,19 @@ async function _runReport(features) {
       if (params) {
         // ── 1. Coeficiente de Aproveitamento ─────────
         html += `<div class="report-section">
-          <div class="report-section-title">Coeficiente de Aproveitamento</div>
+          <div class="report-section-title">Coeficiente de Aproveitamento — Quadro 3 LPUOS</div>
           <table class="report-table">
             <tr><td>CA Mínimo</td><td>${fNA(params.ca_min)}</td></tr>
             <tr><td>CA Básico</td><td>${fCA(params.ca_basico)}</td></tr>
-            <tr><td>CA Máximo da Zona${emEixo?' <span style="font-size:9px;color:var(--kv-blue)">(Eixo)</span>':ouInfo?' <span style="font-size:9px;color:var(--warn)">(OU)</span>':''}</td><td>${fCA(caMax)}</td></tr>
+            <tr><td>CA Máximo da Zona${emEixo?' <span style="font-size:9px;color:var(--kv-blue)">(Eixo eleva)</span>':''}</td><td>${fCA(caMax)}</td></tr>
+            ${caMaxOU ? `<tr style="border-top:1px dashed var(--border2)">
+              <td style="color:var(--warn)">CA Máximo via CEPAC <span style="font-size:9px">(${ouInfo?.nome||ou?.sg_operacao_urbana})</span><br>
+                <span style="font-size:9px;color:var(--muted)">Potencial adicional adquirível — NÃO substitui o CA do Quadro 3</span>
+              </td>
+              <td style="color:var(--warn)">${fCA(caMaxOU)}</td>
+            </tr>` : ''}
           </table>
-          <div class="report-note">CA Básico: construtibilidade sem pagamento de OODC. CA Máximo: via Outorga Onerosa ou CEPAC em OUC.</div>
+          <div class="report-note">CA Básico: construtibilidade sem OODC. CA Máximo da Zona (Quadro 3): via Outorga Onerosa. ${caMaxOU?`CA via CEPAC (${ou?.sg_operacao_urbana}): potencial adicional da Operação Urbana — adquirido separadamente, com legislação e preços próprios.`:''}</div>
         </div>`;
 
         // ── 2. Incentivos Grupo A (CA) e Grupo B (não computável)
