@@ -125,7 +125,9 @@
     .layer-badge{font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px;flex-shrink:0;}
     .badge-count{background:rgba(61,219,160,.12);color:var(--green);border:1px solid var(--green-dim);}
     .badge-empty{background:rgba(90,90,90,.15);color:var(--muted);border:1px solid var(--border);}
-    .badge-err{background:rgba(255,95,114,.08);color:var(--error);border:1px solid rgba(255,95,114,.25);}
+    .badge-err  {background:rgba(255,95,114,.08);color:var(--error);border:1px solid rgba(255,95,114,.25);}
+    .badge-warn {background:rgba(245,166,35,.08);color:var(--warn);border:1px solid rgba(245,166,35,.25);}
+    .badge-muted{background:rgba(90,90,90,.10);color:#555;border:1px solid #2a2a2a;}
 
     /* ── SEL ROW ── */
     .sel-row{display:flex;align-items:center;justify-content:space-between;padding:0 2px;margin-bottom:6px;}
@@ -798,10 +800,35 @@ async function fetchWFS(typeId, bbox, maxFeatures, timeoutMs) {
   }
 
   const ms = timeoutMs || 25000;
-  const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(ms) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  if (json.exceptions || json.ExceptionReport) throw new Error('WFS exception no servidor');
+  let res;
+  try {
+    res = await fetch(fetchUrl, { signal: AbortSignal.timeout(ms) });
+  } catch(e) {
+    // TypeError = CORS real / rede / proxy não configurado
+    // AbortError = timeout
+    const isCORS    = e.name === 'TypeError';
+    const isTimeout = e.name === 'AbortError' || e.name === 'TimeoutError';
+    if (isTimeout) throw Object.assign(new Error('Timeout'), { _kind:'timeout' });
+    if (isCORS)    throw Object.assign(new Error('CORS — proxy não configurado ou camada inacessível'), { _kind:'cors' });
+    throw Object.assign(new Error(e.message), { _kind:'network' });
+  }
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { _kind: res.status >= 500 ? 'server' : 'http' });
+
+  // Tenta parsear JSON; se vier XML (WFS exception ou resposta HTML), classifica como sem WFS
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); }
+  catch(_) {
+    // Resposta XML = WFS exception ou camada não suporta GetFeature
+    const isRaster  = /NoApplicableCode|InvalidParameterValue|no such element/.test(text);
+    const isNoWFS   = /NullPointerException|UnsupportedOperation|not.*queryable/.test(text);
+    if (isRaster || isNoWFS || text.trim().startsWith('<')) {
+      throw Object.assign(new Error('Sem dados WFS (raster ou não vetorial)'), { _kind:'nowfs' });
+    }
+    throw Object.assign(new Error('Resposta inválida do servidor'), { _kind:'parse' });
+  }
+  if (json.exceptions || json.ExceptionReport)
+    throw Object.assign(new Error('WFS exception no servidor'), { _kind:'wfsexc' });
   return json;
 }
 
@@ -1021,7 +1048,7 @@ window.runScan=async function(){
           : await fetchWFS(entry.id, bboxWithOffset, 1);
         r.count=gj.totalFeatures??gj.numberMatched??(gj.features?.length??0);r.features=gj.features??[];r.checked=r.count>0||r.features.length>0;
       }
-      catch(e){r.error=e.message;}
+      catch(e){r.error=e.message; r._errorObj=e;}
       done++;document.getElementById('scanProgressBar').style.width=`${Math.round(done/total*100)}%`;document.getElementById('scanProgressText').textContent=`${done}/${total} — ${entry.label}`;
       layerResults.push(r);renderLayerItem(r);updateSelCount();
     };
@@ -1052,7 +1079,24 @@ function renderLayerItem(layer,append=false){
   const el=document.createElement('div');el.id=elId;
   el.className=['layer-item',hasData?'has-data':'no-data',layer.checked?'checked':''].join(' ').trim();
   const heavyWarn = layer.heavyGeom ? `<span class="layer-badge" style="background:rgba(245,166,35,.1);color:var(--warn);border:1px solid rgba(245,166,35,.3);margin-right:3px" title="Geometria pesada (~600KB). Pode ser lento pelo Worker.">~600KB</span>` : '';
-  const badge=layer.error?`<span class="layer-badge badge-err" title="${layer.error}">erro CORS</span>`:hasData?`${heavyWarn}<span class="layer-badge badge-count">${layer.count>0?layer.count:'1+'}</span>`:`${heavyWarn}<span class="layer-badge badge-empty">vazio</span>`;
+  // Badge de erro com classificação real do problema
+  function errBadge(err) {
+    const kind = err?._kind || '';
+    const msg  = err?.message || err || '';
+    if (kind === 'cors'   || msg.includes('CORS'))          return ['badge-err',  'CORS'];
+    if (kind === 'timeout'|| msg.includes('Timeout'))       return ['badge-warn', 'timeout'];
+    if (kind === 'nowfs'  || msg.includes('raster'))        return ['badge-muted','sem WFS'];
+    if (kind === 'wfsexc' || msg.includes('exception'))     return ['badge-muted','WFS exc.'];
+    if (kind === 'server' || msg.includes('HTTP 5'))        return ['badge-err',  'srv 5xx'];
+    if (kind === 'http'   || msg.match(/HTTP \d/))          return ['badge-warn', msg.replace('HTTP ','')];
+    return ['badge-err', 'erro'];
+  }
+  const [errCls, errTxt] = layer.error ? errBadge(layer._errorObj || {message:layer.error}) : ['',''];
+  const badge = layer.error
+    ? `<span class="layer-badge ${errCls}" title="${layer.error}">${errTxt}</span>`
+    : hasData
+      ? `${heavyWarn}<span class="layer-badge badge-count">${layer.count>0?layer.count:'1+'}</span>`
+      : `${heavyWarn}<span class="layer-badge badge-empty">vazio</span>`;
   el.innerHTML=`<div class="layer-checkbox">${layer.checked?'✓':''}</div><div class="layer-info"><div class="layer-name">${layer.label}</div><div class="layer-meta">${layer.id} · ${layer.category}</div></div>${badge}`;
   el.onclick=()=>window.toggleLayer(layer.id);
   if(append){list.appendChild(el);return;}
@@ -1521,10 +1565,25 @@ async function fetchWFSByGeom(typeId, wkt, maxFeatures) {
     CQL_FILTER:`INTERSECTS(ge_poligono,${wkt})`,
   });
   const raw = `https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?${p}`;
-  const res = await fetch(buildProxiedUrl(raw), { signal: AbortSignal.timeout(20000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  if (json.exceptions || json.ExceptionReport) throw new Error('WFS exception');
+  let res;
+  try {
+    res = await fetch(buildProxiedUrl(raw), { signal: AbortSignal.timeout(20000) });
+  } catch(e) {
+    const isTimeout = e.name === 'AbortError' || e.name === 'TimeoutError';
+    if (isTimeout) throw Object.assign(new Error('Timeout'), { _kind:'timeout' });
+    throw Object.assign(new Error('CORS — proxy não configurado ou camada inacessível'), { _kind:'cors' });
+  }
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { _kind: res.status >= 500 ? 'server' : 'http' });
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); }
+  catch(_) {
+    if (text.trim().startsWith('<'))
+      throw Object.assign(new Error('Sem dados WFS (raster ou não vetorial)'), { _kind:'nowfs' });
+    throw Object.assign(new Error('Resposta inválida'), { _kind:'parse' });
+  }
+  if (json.exceptions || json.ExceptionReport)
+    throw Object.assign(new Error('WFS exception'), { _kind:'wfsexc' });
   return json;
 }
 
