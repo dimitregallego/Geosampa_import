@@ -1481,20 +1481,25 @@ const OU_PARAMS = {
 
 // ── Calcula CA com todos os benefícios possíveis ─────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════
-// POTENCIAL CONSTRUTIVO — MODELO CORRETO conforme LPUOS Lei 16.402/16
-// (consolidada com Lei 18.081/24 e Lei 18.177/24)
+// POTENCIAL CONSTRUTIVO — LPUOS Lei 16.402/16 + Lei 18.081/24 + Lei 18.177/24
 //
-// Os "incentivos" da LPUOS NÃO aumentam o CA máximo da zona.
-// O CA máximo (Quadro 3) é o limite ABSOLUTO para área COMPUTÁVEL.
-// O que a lei oferece são ÁREAS NÃO COMPUTÁVEIS adicionais.
+// MODELO DE INCENTIVOS CONFORME A LEGISLAÇÃO:
 //
-// Áreas não computáveis relevantes (Art.62 LPUOS):
-//  • Fachada ativa nR (inc.VII/VIII): até 50% da área do lote em ZEU/ZC/ZEM etc.
-//    ou até 20% nas demais zonas — área nR no nível da rua
-//  • Empreendimento sem vaga (§1º al.d, Lei 18.081/24): até 10% da área comp.
-//  • Cota de Solidariedade (PDE Art.111/112): HIS adicional não computável
-//    = empreendedor constrói mais 20% da área comp. em HIS — ÚNICA forma
-//    de aumentar o potencial construtivo total além do CA max
+// GRUPO A — Acréscimos reais ao CA máximo (aumentam área computável permissível):
+//   • HIS: +50% sobre o CA máximo da zona (EHIS/EZEIS) — projeto vira EHIS
+//   • HMP: +25% sobre o CA máximo da zona — projeto vira EHMP
+//   • Cota de Solidariedade: +20% sobre CA máximo — contrapartida 10% em HIS
+//     (facultativa; obrigatória se área comp. > 20.000m²)
+//   Todos sujeitos ao teto prático do município (CA máx 4 via OODC standard,
+//   podendo ultrapassar em EHIS por isenção de OODC no incremento)
+//
+// GRUPO B — Áreas NÃO COMPUTÁVEIS (não alteram o CA max, mas ampliam a construção total):
+//   • Fachada ativa nR (Art.62 inc.VII/VIII): até 50% do lote (ZEU/ZC/ZEM) ou 20% (demais)
+//   • Empreendimento sem vaga (Art.62 §1º al.d, Lei 18.081/24): até 10% da área comp.
+//   • Fruição pública (Art.62 inc.XVII, Lei 18.081/24): área cedida = bônus não comp.
+//
+// ATENÇÃO: Em zonas de eixo (ZEU/ZEM), a combinação HIS + CS + fachada ativa
+// pode levar o potencial total muito acima do CA 4.0 da zona.
 // ══════════════════════════════════════════════════════════════════════════
 
 const ZONAS_FA_50PCT = new Set(['ZEU','ZEUa','ZEUP','ZEUPa','ZEM','ZEMP','ZC','ZCa']);
@@ -1503,35 +1508,81 @@ function calcPotencialConstrutivo(params, caMaxOuOverride, areaLote) {
   const caMax = caMaxOuOverride || (typeof params.ca_maximo === 'number' ? params.ca_maximo : 0);
   if (!caMax) return null;
   const At = areaLote || 900;
-  const areaComp = caMax * At;
+
+  // ── GRUPO A: acréscimos ao CA máximo ──────────────────────────────────
+  // HIS: +50% — projeto vira EHIS (isenção parcial de OODC no incremento)
+  const his_pct = params.ben_his_pct  || 0;  // ex: 0.50
+  const hmp_pct = params.ben_hmp_pct  || 0;  // ex: 0.25
+  const cs_pct  = params.cota_solidariedade?.acrescimo_pct || 0; // ex: 0.20
+
+  const caMax_his = parseFloat(Math.min(caMax * (1 + his_pct), 6).toFixed(2)); // HIS isenta OODC no incremental
+  const caMax_hmp = parseFloat(Math.min(caMax * (1 + hmp_pct), 6).toFixed(2));
+  const caMax_cs  = parseFloat(Math.min(caMax * (1 + cs_pct),  6).toFixed(2));
+  const caMax_his_cs = parseFloat(Math.min(caMax * (1 + his_pct + cs_pct), 6).toFixed(2));
+
+  // Áreas computáveis por cenário
+  const areaComp_base   = Math.round(caMax * At);
+  const areaComp_his    = Math.round(caMax_his * At);
+  const areaComp_hmp    = Math.round(caMax_hmp * At);
+  const areaComp_cs     = Math.round(caMax_cs  * At);
+  const areaComp_his_cs = Math.round(caMax_his_cs * At);
+
+  // ── GRUPO B: áreas não computáveis ────────────────────────────────────
   const zonaCode = Object.keys(ZONEAMENTO_PARAMS).find(k => ZONEAMENTO_PARAMS[k] === params);
-  const fa50     = zonaCode ? ZONAS_FA_50PCT.has(zonaCode) : false;
-  const nc_fa    = fa50 ? (At * 0.50) : (At * 0.20);
-  const nc_semvaga = areaComp * 0.10;
-  const cs = params.cota_solidariedade?.acrescimo_pct || 0;
-  const nc_cs = cs > 0 ? (areaComp * cs) : 0;
-  const ca_equiv_cs = cs > 0 ? parseFloat(((areaComp + nc_cs) / At).toFixed(2)) : null;
-  const nc_total = nc_fa + nc_semvaga + nc_cs;
+  const fa50 = zonaCode ? ZONAS_FA_50PCT.has(zonaCode) : false;
+
+  // Fachada ativa: até 50% (eixos) ou 20% (demais) da área do lote
+  const nc_fa = fa50 ? (At * 0.50) : (At * 0.20);
+
+  // Empreendimento sem vaga: 10% da área computável do cenário base
+  const nc_semvaga = areaComp_base * 0.10;
+
+  // ── Potencial total por cenário ────────────────────────────────────────
+  const pot_base      = areaComp_base + nc_fa + nc_semvaga;
+  const pot_his       = areaComp_his  + nc_fa + nc_semvaga;
+  const pot_his_cs    = areaComp_his_cs + nc_fa + nc_semvaga;
+
   return {
-    ca_max, area_computavel: Math.round(areaComp),
-    nc_fachada_ativa: Math.round(nc_fa), nc_sem_vaga: Math.round(nc_semvaga),
-    nc_cota_solidariedade: nc_cs > 0 ? Math.round(nc_cs) : null,
-    ca_equiv_cs, ca_potencial_total: parseFloat(((areaComp + nc_total) / At).toFixed(2)),
-    nc_total: Math.round(nc_total), area_lote: At, fa50pct: fa50,
-    tem_cs: cs > 0, cs_obrig_acima: params.cota_solidariedade?.obrigatorio_acima_m2 || null,
+    caMax,
+    // Grupo A
+    caMax_his, caMax_hmp, caMax_cs, caMax_his_cs,
+    his_pct, hmp_pct, cs_pct,
+    // Áreas computáveis
+    areaComp_base, areaComp_his, areaComp_hmp, areaComp_cs, areaComp_his_cs,
+    // Grupo B — não computáveis
+    nc_fa, nc_semvaga,
+    fa50pct: fa50,
+    // Potenciais totais
+    pot_base:   Math.round(pot_base),
+    pot_his:    Math.round(pot_his),
+    pot_his_cs: Math.round(pot_his_cs),
+    ca_equiv_base:   parseFloat((pot_base   / At).toFixed(2)),
+    ca_equiv_his:    parseFloat((pot_his    / At).toFixed(2)),
+    ca_equiv_his_cs: parseFloat((pot_his_cs / At).toFixed(2)),
+    area_lote: At,
+    tem_his: his_pct > 0,
+    tem_hmp: hmp_pct > 0,
+    tem_cs:  cs_pct  > 0,
+    cs_obrig_acima: params.cota_solidariedade?.obrigatorio_acima_m2 || null,
+    cs_contrapartida: params.cota_solidariedade?.contrapartida || null,
   };
 }
 
-// Compatibilidade com código existente
+// Compatibilidade com código existente que usa calcCAComBeneficios
 function calcCAComBeneficios(params, caMaxOuOverride) {
   const r = calcPotencialConstrutivo(params, caMaxOuOverride, 900);
   if (!r) return null;
   return {
-    ca_base: r.ca_max, ca_cs: r.ca_equiv_cs || r.ca_max,
-    ca_his: r.ca_max, ca_hmp: r.ca_max, ca_sem_vaga: null,
-    ca_cs_nr: r.ca_potencial_total, ca_his_cs: r.ca_equiv_cs || r.ca_max,
-    ca_hmp_cs: r.ca_equiv_cs || r.ca_max, ca_max_all: r.ca_potencial_total,
-    _potencial: r,
+    ca_base:     r.caMax,
+    ca_his:      r.caMax_his,
+    ca_hmp:      r.caMax_hmp,
+    ca_cs:       r.caMax_cs,
+    ca_his_cs:   r.caMax_his_cs,
+    ca_hmp_cs:   r.caMax_his_cs,   // usar his+cs como melhor combinação
+    ca_sem_vaga: null,              // vaga zero = área não computável, não acréscimo CA
+    ca_max_all:  r.caMax_his_cs,
+    ca_cs_nr:    r.ca_equiv_his_cs,
+    _potencial:  r,
   };
 }
 
@@ -1872,47 +1923,80 @@ async function _runReport(features) {
           <div class="report-note">CA Básico: construtibilidade sem pagamento de OODC. CA Máximo: via Outorga Onerosa ou CEPAC em OUC.</div>
         </div>`;
 
-        // ── 2. Potencial Construtivo: áreas não computáveis (LPUOS Art.62)
+        // ── 2. Incentivos Grupo A (CA) e Grupo B (não computável)
         {
           const pot = calcPotencialConstrutivo(params, typeof caMax==='number'?caMax:null, 900);
           const cs  = params.cota_solidariedade;
           if (pot) {
             html += `<div class="report-section">
-              <div class="report-section-title">Potencial Construtivo — Área Computável + Não Computáveis (ref. lote 900m²)</div>
+              <div class="report-section-title">Incentivos de CA e Potencial Construtivo (ref. lote 900m²)</div>
               <table class="report-table">
-                <tr>
-                  <td>CA Máximo da Zona<br><span style="font-size:9px;color:var(--muted)">Limite absoluto da área <strong>computável</strong> — Quadro 3 LPUOS</span></td>
-                  <td><span class="report-val-highlight">${fCA(pot.ca_max)}</span> → ${pot.area_computavel.toLocaleString('pt-BR')}m²</td>
+                <tr style="background:rgba(0,172,205,.04)">
+                  <td colspan="2" style="color:var(--kv-blue);font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:6px 12px">
+                    GRUPO A — ACRÉSCIMOS AO CA MÁXIMO (aumentam área computável permissível)
+                  </td>
                 </tr>
                 <tr>
-                  <td>+ Fachada Ativa nR — Art.62 inc.VII/VIII LPUOS<br>
-                    <span style="font-size:9px;color:var(--muted)">${pot.fa50pct?'ZEU/ZC/ZEM: até 50%':'Demais zonas: até 20%'} da área do lote — <strong>não computável</strong></span>
+                  <td>CA Máximo da Zona (base, Quadro 3)</td>
+                  <td><span class="report-val-highlight">${fCA(pot.caMax)}</span> → ${pot.areaComp_base.toLocaleString('pt-BR')}m²</td>
+                </tr>
+                ${pot.tem_his ? `<tr>
+                  <td>+ HIS: CA com 50% EHIS<br>
+                    <span style="font-size:9px;color:var(--muted)">Projeto vira EHIS — isenção parcial de OODC no incremento</span>
                   </td>
-                  <td>+${pot.nc_fachada_ativa.toLocaleString('pt-BR')}m²</td>
+                  <td><span class="report-val-highlight">${fCA(pot.caMax_his)}</span> → ${pot.areaComp_his.toLocaleString('pt-BR')}m²</td>
+                </tr>` : ''}
+                ${pot.tem_hmp ? `<tr>
+                  <td>+ HMP: CA com 25% EHMP</td>
+                  <td>${fCA(pot.caMax_hmp)} → ${pot.areaComp_hmp.toLocaleString('pt-BR')}m²</td>
+                </tr>` : ''}
+                ${pot.tem_cs ? `<tr>
+                  <td>+ Cota de Solidariedade: +${(pot.cs_pct*100).toFixed(0)}%<br>
+                    <span style="font-size:9px;color:var(--muted)">${cs?.facultativa?'Facultativa':'Obrigatória'}${cs?.obrigatorio_acima_m2?` · obrig. se área comp. > ${(cs.obrigatorio_acima_m2/1000).toFixed(0)}.000m²`:''} — contrapartida: 10% em HIS</span>
+                  </td>
+                  <td>${fCA(pot.caMax_cs)} → ${pot.areaComp_cs.toLocaleString('pt-BR')}m²</td>
+                </tr>
+                <tr style="border-top:1px solid var(--border2)">
+                  <td><strong>CA Máx. com HIS + CS</strong> (melhor cenário Grupo A)</td>
+                  <td><span class="report-val-highlight">${fCA(pot.caMax_his_cs)}</span> → ${pot.areaComp_his_cs.toLocaleString('pt-BR')}m²</td>
+                </tr>` : ''}
+                <tr style="background:rgba(61,219,160,.04)">
+                  <td colspan="2" style="color:var(--green);font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:6px 12px;padding-top:10px">
+                    GRUPO B — ÁREAS NÃO COMPUTÁVEIS (ampliam construção total sem alterar o CA máximo)
+                  </td>
                 </tr>
                 <tr>
-                  <td>+ Empreendimento sem vagas — Art.62 §1º al.d (Lei 18.081/24)<br>
-                    <span style="font-size:9px;color:var(--muted)">até 10% da área comp. — <strong>não computável</strong></span>
+                  <td>Fachada Ativa nR (Art.62 inc.VII/VIII)<br>
+                    <span style="font-size:9px;color:var(--muted)">${pot.fa50pct?'ZEU/ZC/ZEM: até 50%':'Demais zonas: até 20%'} da área do lote</span>
                   </td>
-                  <td>+${pot.nc_sem_vaga.toLocaleString('pt-BR')}m²</td>
+                  <td style="color:var(--green)">+${Math.round(pot.nc_fa).toLocaleString('pt-BR')}m²</td>
                 </tr>
-                ${cs&&cs.acrescimo_pct?`
                 <tr>
-                  <td>+ Cota de Solidariedade — PDE Art.111/112<br>
-                    <span style="font-size:9px;color:var(--muted)">${cs.facultativa?'Facultativa':('Obrigatória')}${cs.obrigatorio_acima_m2?` · obrigatória se área comp. > ${(cs.obrigatorio_acima_m2/1000).toFixed(0)}.000m²`:''} — HIS construída é <strong>não computável</strong></span>
+                  <td>Empreendimento sem vagas (Art.62 §1º al.d — Lei 18.081/24)<br>
+                    <span style="font-size:9px;color:var(--muted)">Até 10% da área computável torna-se não computável</span>
                   </td>
-                  <td>+${(pot.nc_cota_solidariedade||0).toLocaleString('pt-BR')}m² HIS<br>
-                    <span style="color:var(--kv-blue);font-size:11px;font-weight:600">CA equiv. ${fCA(pot.ca_equiv_cs)}</span>
-                  </td>
-                </tr>`:``}
+                  <td style="color:var(--green)">+${Math.round(pot.nc_semvaga).toLocaleString('pt-BR')}m²</td>
+                </tr>
                 <tr style="border-top:2px solid var(--border2)">
-                  <td><strong>Potencial total</strong> (comp. + não comp. acumulados)</td>
-                  <td><span class="report-val-highlight">${(pot.area_computavel + pot.nc_total).toLocaleString('pt-BR')}m²</span><br>
-                    <span style="font-size:9px;color:var(--muted)">CA equivalente: ${fCA(pot.ca_potencial_total)}</span>
+                  <td><strong>Potencial total — cenário base</strong><br>
+                    <span style="font-size:9px;color:var(--muted)">CA base + fachada ativa + vaga zero</span>
+                  </td>
+                  <td><span style="color:var(--kv-blue);font-size:13px;font-weight:700">${pot.pot_base.toLocaleString('pt-BR')}m²</span><br>
+                    <span style="font-size:9px;color:var(--muted)">CA equiv.: ${fCA(pot.ca_equiv_base)}</span>
                   </td>
                 </tr>
+                ${pot.tem_his ? `<tr>
+                  <td><strong>Potencial total — HIS + CS + não comp.</strong><br>
+                    <span style="font-size:9px;color:var(--muted)">Melhor cenário combinando Grupos A e B</span>
+                  </td>
+                  <td><span class="report-val-highlight">${pot.pot_his_cs.toLocaleString('pt-BR')}m²</span><br>
+                    <span style="font-size:9px;color:var(--muted)">CA equiv.: ${fCA(pot.ca_equiv_his_cs)}</span>
+                  </td>
+                </tr>` : ''}
               </table>
-              <div class="report-note"><strong>Atenção:</strong> O CA máximo (${pot.ca_max}) é o limite da área <em>computável</em> — não pode ser ultrapassado. As áreas não computáveis são construtíveis adicionalmente sem OODC, dentro dos limites de cada incentivo. A Cota de Solidariedade (PDE Art.111/112) é a única forma de construir HIS além do CA max — a HIS é não computável. Contrapartida: ${cs?cs.contrapartida:'verificar'}. Pode ser paga ao FUNDURB.</div>
+              <div class="report-note">
+                <strong>Grupo A</strong> (HIS, HMP, CS) aumenta o CA máximo — mais área computável, sujeita a OODC acima do CA básico (exceto HIS que tem isenção de OODC no incremento). <strong>Grupo B</strong> (fachada ativa, vaga zero) são áreas construtíveis que não entram no CA nem na OODC. A combinação HIS + Cota de Solidariedade + Fachada Ativa é o cenário de maior potencial total.
+              </div>
             </div>`;
           }
         }
