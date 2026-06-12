@@ -613,7 +613,15 @@ const HEAVY_LAYERS = {
   'geoportal:area_influencia_trem':  { heavyGeom:true, maxF:3,  label:'Área de Influência CPTM',   category:'Transporte' },
 };
 
-const WFS_BASE = 'https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs';
+// ── Endpoints WFS do GeoSampa ─────────────────────────────────────────────
+// O GeoSampa expõe dois endpoints WFS:
+//   /geoserver/geoportal/wfs → workspace geoportal (~473 camadas)
+//   /geoserver/ows           → endpoint global que agrega TODOS os workspaces
+//
+// Usamos o endpoint global para garantir acesso a TODAS as camadas,
+// incluindo OUC Bairros do Tamanduateí, AIU Arco Pinheiros, AIU Arco
+// Jurubatuba e outras que só existem em workspaces fora do geoportal.
+const WFS_BASE = 'https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/ows';
 
 // ══════════════════════════════════════════════════════════════════════════
 // CATÁLOGO DINÂMICO — GetCapabilities
@@ -625,7 +633,7 @@ const WFS_BASE = 'https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/
 
 // ── Auto-categorização por palavras-chave do id/título ───────────────────
 function autoCategorize(id, title) {
-  const s = (id + ' ' + title).toLowerCase()
+  const s = (id.replace(/^[^:]+:/, '') + ' ' + title).toLowerCase() // strip prefixo de workspace
     .replace(/[áàãâä]/g,'a').replace(/[éèêë]/g,'e')
     .replace(/[íìîï]/g,'i').replace(/[óòõôö]/g,'o')
     .replace(/[úùûü]/g,'u').replace(/ç/g,'c').replace(/ñ/g,'n');
@@ -684,20 +692,26 @@ async function fetchCapabilities() {
   const parser = new DOMParser();
   const doc = parser.parseFromString(text, 'text/xml');
 
-  // Todas as camadas vêm do servidor — sem lista fixa.
+  // Aceita camadas de QUALQUER workspace (não só geoportal:).
+  // O endpoint /geoserver/ows agrega todos os workspaces do GeoServer.
   // Apenas HEAVY_LAYERS injeta metadados especiais onde necessário.
   const featureTypes = doc.querySelectorAll('FeatureType');
+  const seen = new Set(); // deduplicação por id
   const catalog = [];
 
   for (const ft of featureTypes) {
     const name  = ft.querySelector('Name')?.textContent?.trim()  || '';
     const title = ft.querySelector('Title')?.textContent?.trim() || '';
-    if (!name.startsWith('geoportal:')) continue;
+    if (!name || !name.includes(':')) continue; // ignora layers sem namespace
+    if (seen.has(name)) continue;
+    seen.add(name);
 
     const heavy = HEAVY_LAYERS[name] || {};
+    // Strip do prefixo de workspace para label legível (ex: "geoportal:lote" → "lote")
+    const bare = name.replace(/^[^:]+:/, '').replace(/_/g, ' ');
     catalog.push({
       id:       name,
-      label:    heavy.label  || title || name.replace('geoportal:','').replace(/_/g,' '),
+      label:    heavy.label  || title || bare,
       category: heavy.category || autoCategorize(name, title),
       maxF:     heavy.maxF   || 200,
       ...(heavy.heavyGeom ? { heavyGeom:true } : {}),
@@ -1564,7 +1578,7 @@ const _geomColCache = {};
 // ── Detecta ordem de tentativa com base no nome da camada ───────────────
 // GeoSampa usa 3 nomes de coluna: ge_poligono, ge_linha, ge_ponto
 function _guessGeomCols(typeId) {
-  const n = typeId.replace('geoportal:','').toLowerCase();
+  const n = typeId.replace(/^[^:]+:/, '').toLowerCase(); // strip qualquer prefixo de workspace
   const isLine  = /curva|linha|logradouro|segmento|via_|calcada|calçada|ferr|rio_|corrego|ribeirao|duto|rede_|trilho|limite_|divisoria|faixa|arruamento|passeio/.test(n);
   const isPoint = /ponto|marco|arvore|cotado|equip|poste|boca_lobo|hidrante|bueiro|lixeira|semaforo|lampiao|camera/.test(n);
   if (isLine)  return ['ge_linha',   'ge_poligono', 'ge_ponto'];
@@ -2693,7 +2707,7 @@ window.updateModeHint();
 </script>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 12px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#333;pointer-events:none;z-index:10;border-top:1px solid #1a1a1a;letter-spacing:.06em">
     <span>GEOSAMPA IMPORT · WFS MULTI-CAMADAS</span>
-    <span style="color:#00ACCD">V26</span>
+    <span style="color:#00ACCD">V27</span>
   </div>
 </body>
 </html>
