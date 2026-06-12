@@ -1507,85 +1507,77 @@ const ZONAS_FA_50PCT = new Set(['ZEU','ZEUa','ZEUP','ZEUPa','ZEM','ZEMP','ZC','Z
 function calcPotencialConstrutivo(params, caMaxOuOverride, areaLote) {
   const caMax = caMaxOuOverride || (typeof params.ca_maximo === 'number' ? params.ca_maximo : 0);
   if (!caMax) return null;
-  const At = areaLote || 900;
+  const At = areaLote > 0 ? areaLote : 900;
+
+  const his_pct = params.ben_his_pct  || 0;   // 0.50
+  const hmp_pct = params.ben_hmp_pct  || 0;   // 0.25
+  const cs_pct  = params.cota_solidariedade?.acrescimo_pct || 0; // 0.20
 
   // ── GRUPO A: acréscimos ao CA máximo ──────────────────────────────────
-  // HIS: +50% — projeto vira EHIS (isenção parcial de OODC no incremento)
-  const his_pct = params.ben_his_pct  || 0;  // ex: 0.50
-  const hmp_pct = params.ben_hmp_pct  || 0;  // ex: 0.25
-  const cs_pct  = params.cota_solidariedade?.acrescimo_pct || 0; // ex: 0.20
+  // HIS e HMP são aplicados diretamente sobre o CA máximo da zona
+  const caMax_his     = parseFloat((caMax * (1 + his_pct)).toFixed(2));
+  const caMax_hmp     = parseFloat((caMax * (1 + hmp_pct)).toFixed(2));
+  const caMax_his_hmp = parseFloat((caMax * (1 + his_pct + hmp_pct)).toFixed(2));
 
-  const caMax_his = parseFloat(Math.min(caMax * (1 + his_pct), 6).toFixed(2)); // HIS isenta OODC no incremental
-  const caMax_hmp = parseFloat(Math.min(caMax * (1 + hmp_pct), 6).toFixed(2));
-  const caMax_cs  = parseFloat(Math.min(caMax * (1 + cs_pct),  6).toFixed(2));
-  const caMax_his_cs = parseFloat(Math.min(caMax * (1 + his_pct + cs_pct), 6).toFixed(2));
+  // CS: calculada SOBRE o resultado total pós-HIS+HMP (multiplicativa, não aditiva)
+  // Fórmula: (caMax × (1+HIS+HMP)) × (1+CS)
+  const caMax_cs      = parseFloat((caMax * (1 + cs_pct)).toFixed(2));                              // CS sozinha
+  const caMax_his_cs  = parseFloat((caMax * (1 + his_pct) * (1 + cs_pct)).toFixed(2));             // HIS → CS sobre HIS
+  const caMax_hmp_cs  = parseFloat((caMax * (1 + hmp_pct) * (1 + cs_pct)).toFixed(2));             // HMP → CS sobre HMP
+  const caMax_all     = parseFloat((caMax * (1 + his_pct + hmp_pct) * (1 + cs_pct)).toFixed(2));   // HIS+HMP → CS sobre ambos
 
-  // Áreas computáveis por cenário
-  const areaComp_base   = Math.round(caMax * At);
-  const areaComp_his    = Math.round(caMax_his * At);
-  const areaComp_hmp    = Math.round(caMax_hmp * At);
-  const areaComp_cs     = Math.round(caMax_cs  * At);
-  const areaComp_his_cs = Math.round(caMax_his_cs * At);
+  // Áreas computáveis por cenário (usando área real do terreno)
+  const areaComp_base    = Math.round(caMax          * At);
+  const areaComp_his     = Math.round(caMax_his      * At);
+  const areaComp_hmp     = Math.round(caMax_hmp      * At);
+  const areaComp_his_hmp = Math.round(caMax_his_hmp  * At);
+  const areaComp_his_cs  = Math.round(caMax_his_cs   * At);
+  const areaComp_all     = Math.round(caMax_all       * At);
 
   // ── GRUPO B: áreas não computáveis ────────────────────────────────────
   const zonaCode = Object.keys(ZONEAMENTO_PARAMS).find(k => ZONEAMENTO_PARAMS[k] === params);
-  const fa50 = zonaCode ? ZONAS_FA_50PCT.has(zonaCode) : false;
+  const fa50     = zonaCode ? ZONAS_FA_50PCT.has(zonaCode) : false;
+  const nc_fa    = fa50 ? (At * 0.50) : (At * 0.20);          // fachada ativa
+  const nc_svaga = areaComp_base * 0.10;                       // sem vaga (sobre área base)
 
-  // Fachada ativa: até 50% (eixos) ou 20% (demais) da área do lote
-  const nc_fa = fa50 ? (At * 0.50) : (At * 0.20);
-
-  // Empreendimento sem vaga: 10% da área computável do cenário base
-  const nc_semvaga = areaComp_base * 0.10;
-
-  // ── Potencial total por cenário ────────────────────────────────────────
-  const pot_base      = areaComp_base + nc_fa + nc_semvaga;
-  const pot_his       = areaComp_his  + nc_fa + nc_semvaga;
-  const pot_his_cs    = areaComp_his_cs + nc_fa + nc_semvaga;
+  // ── Potenciais totais ─────────────────────────────────────────────────
+  const pot_base = areaComp_base    + nc_fa + nc_svaga;
+  const pot_his  = areaComp_his     + nc_fa + nc_svaga;
+  const pot_all  = areaComp_all     + nc_fa + nc_svaga;
 
   return {
-    caMax,
-    // Grupo A
-    caMax_his, caMax_hmp, caMax_cs, caMax_his_cs,
+    caMax, At,
+    // Grupo A — CA acrescidos
+    caMax_his, caMax_hmp, caMax_his_hmp,
+    caMax_cs, caMax_his_cs, caMax_hmp_cs, caMax_all,
     his_pct, hmp_pct, cs_pct,
     // Áreas computáveis
-    areaComp_base, areaComp_his, areaComp_hmp, areaComp_cs, areaComp_his_cs,
+    areaComp_base, areaComp_his, areaComp_hmp, areaComp_his_hmp, areaComp_his_cs, areaComp_all,
     // Grupo B — não computáveis
-    nc_fa, nc_semvaga,
-    fa50pct: fa50,
-    // Potenciais totais
-    pot_base:   Math.round(pot_base),
-    pot_his:    Math.round(pot_his),
-    pot_his_cs: Math.round(pot_his_cs),
-    ca_equiv_base:   parseFloat((pot_base   / At).toFixed(2)),
-    ca_equiv_his:    parseFloat((pot_his    / At).toFixed(2)),
-    ca_equiv_his_cs: parseFloat((pot_his_cs / At).toFixed(2)),
-    area_lote: At,
-    tem_his: his_pct > 0,
-    tem_hmp: hmp_pct > 0,
-    tem_cs:  cs_pct  > 0,
-    cs_obrig_acima: params.cota_solidariedade?.obrigatorio_acima_m2 || null,
+    nc_fa, nc_svaga, fa50pct: fa50,
+    // Totais
+    pot_base: Math.round(pot_base),
+    pot_his:  Math.round(pot_his),
+    pot_all:  Math.round(pot_all),
+    ca_equiv_base: parseFloat((pot_base / At).toFixed(2)),
+    ca_equiv_his:  parseFloat((pot_his  / At).toFixed(2)),
+    ca_equiv_all:  parseFloat((pot_all  / At).toFixed(2)),
+    tem_his: his_pct > 0, tem_hmp: hmp_pct > 0, tem_cs: cs_pct > 0,
+    cs_obrig_acima:   params.cota_solidariedade?.obrigatorio_acima_m2 || null,
     cs_contrapartida: params.cota_solidariedade?.contrapartida || null,
   };
 }
 
-// Compatibilidade com código existente que usa calcCAComBeneficios
-function calcCAComBeneficios(params, caMaxOuOverride) {
-  const r = calcPotencialConstrutivo(params, caMaxOuOverride, 900);
+// Compatibilidade reversa
+function calcCAComBeneficios(params, caMaxOuOverride, areaLote) {
+  const r = calcPotencialConstrutivo(params, caMaxOuOverride, areaLote || 900);
   if (!r) return null;
   return {
-    ca_base:     r.caMax,
-    ca_his:      r.caMax_his,
-    ca_hmp:      r.caMax_hmp,
-    ca_cs:       r.caMax_cs,
-    ca_his_cs:   r.caMax_his_cs,
-    ca_hmp_cs:   r.caMax_his_cs,   // usar his+cs como melhor combinação
-    ca_sem_vaga: null,              // vaga zero = área não computável, não acréscimo CA
-    ca_max_all:  r.caMax_his_cs,
-    ca_cs_nr:    r.ca_equiv_his_cs,
-    _potencial:  r,
+    ca_base: r.caMax, ca_his: r.caMax_his, ca_hmp: r.caMax_hmp,
+    ca_cs: r.caMax_cs, ca_his_cs: r.caMax_his_cs, ca_hmp_cs: r.caMax_hmp_cs,
+    ca_max_all: r.caMax_all, _potencial: r,
   };
 }
-
 // ── Mínimo de UH por cota parte ──────────────────────────────────────────────
 function calcMinUH(areaTerreno, caMaxComBen, cotaPartePorUH) {
   if (!areaTerreno || !caMaxComBen || !cotaPartePorUH) return null;
@@ -1797,10 +1789,19 @@ async function _runReport(features) {
       wkt = geojsonToWKT(merged);
       filterMode = 'intersects';
       // Calcula área aproximada
-      const bbox = featureToBBOX({ geometry: merged });
-      const areaKm2 = (bbox.maxX-bbox.minX) * (bbox.maxY-bbox.minY) * 111320 * 111320 * Math.cos(23.5*Math.PI/180);
-      terrainArea = (areaKm2 * 1e6).toFixed(0); // m²
-      terrainLabel = `${features.length} polígono(s) · ~${Number(terrainArea).toLocaleString('pt-BR')} m² (BBOX aprox.)`;
+      // Usa turf.area para área precisa do polígono real
+      try {
+        const turfArea = (typeof turf !== 'undefined')
+          ? turf.area({ type:'Feature', geometry:merged, properties:{} })
+          : null;
+        terrainArea = turfArea ? Math.round(turfArea).toString() : null;
+      } catch(_) {}
+      if (!terrainArea) {
+        const bbox = featureToBBOX({ geometry: merged });
+        const areaKm2 = (bbox.maxX-bbox.minX)*(bbox.maxY-bbox.minY)*111320*111320*Math.cos(23.5*Math.PI/180);
+        terrainArea = (areaKm2*1e6).toFixed(0);
+      }
+      terrainLabel = `${features.length} polígono(s) · ${Number(terrainArea).toLocaleString('pt-BR')} m²`;
     }
   }
 
@@ -1871,6 +1872,9 @@ async function _runReport(features) {
       ${ous.length>0 ? ous.map(o=>`<div class="report-ou-tag">↳ ${o.nm_operacao_urbana} (${o.sg_operacao_urbana})</div>`).join('') : ''}
     </div>`;
 
+    // Área real do terreno para os cálculos (m²)
+    const At_real = terrainArea && parseFloat(terrainArea) > 0 ? parseFloat(terrainArea) : 900;
+
     // ── Por zona ──────────────────────────────────────────────────
     const zonesUniq = [...new Map(zones.map(z=>[z.cd_zoneamento_perimetro,z])).values()];
 
@@ -1906,7 +1910,7 @@ async function _runReport(features) {
       if (ouInfo) { obsExtra += (obsExtra?' ':'')+ouInfo.obs; }
 
       // ── Benefícios de CA (sempre baseados no CA do Quadro 3) ─────────────
-      const bens = params ? calcCAComBeneficios(params, typeof caMax==='number'?caMax:null) : null;
+      const bens = params ? calcCAComBeneficios(params, typeof caMax==='number'?caMax:null, At_real) : null;
 
       // ── Header da zona ────────────────────────────
       html += `<div class="report-section">
@@ -1936,79 +1940,108 @@ async function _runReport(features) {
           <div class="report-note">CA Básico: construtibilidade sem OODC. CA Máximo da Zona (Quadro 3): via Outorga Onerosa. ${caMaxOU?`CA via CEPAC (${ou?.sg_operacao_urbana}): potencial adicional da Operação Urbana — adquirido separadamente, com legislação e preços próprios.`:''}</div>
         </div>`;
 
-        // ── 2. Incentivos Grupo A (CA) e Grupo B (não computável)
+        // ── 2. Incentivos Grupo A + B com área real do terreno
         {
-          const pot = calcPotencialConstrutivo(params, typeof caMax==='number'?caMax:null, 900);
+          const pot = calcPotencialConstrutivo(params, typeof caMax==='number'?caMax:null, At_real);
           const cs  = params.cota_solidariedade;
           if (pot) {
+            const fmt = v => v.toLocaleString('pt-BR');
+            const fC2 = v => `<strong>${v.toFixed(2)}</strong>`;
             html += `<div class="report-section">
-              <div class="report-section-title">Incentivos de CA e Potencial Construtivo (ref. lote 900m²)</div>
+              <div class="report-section-title">Incentivos de CA e Potencial Construtivo — Área real: ${fmt(pot.At)}m²</div>
+
               <table class="report-table">
-                <tr style="background:rgba(0,172,205,.04)">
-                  <td colspan="2" style="color:var(--kv-blue);font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:6px 12px">
-                    GRUPO A — ACRÉSCIMOS AO CA MÁXIMO (aumentam área computável permissível)
+                <tr style="background:rgba(0,172,205,.06)">
+                  <td colspan="3" style="color:var(--kv-blue);font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:5px 12px">
+                    GRUPO A — ACRÉSCIMOS AO CA MÁXIMO (área computável)
                   </td>
+                </tr>
+                <tr style="font-size:10px;color:var(--muted)">
+                  <td></td><td>CA</td><td>Área computável</td>
                 </tr>
                 <tr>
-                  <td>CA Máximo da Zona (base, Quadro 3)</td>
-                  <td><span class="report-val-highlight">${fCA(pot.caMax)}</span> → ${pot.areaComp_base.toLocaleString('pt-BR')}m²</td>
+                  <td>Base — CA Máximo Quadro 3</td>
+                  <td>${fC2(pot.caMax)}</td>
+                  <td>${fmt(pot.areaComp_base)}m²</td>
                 </tr>
                 ${pot.tem_his ? `<tr>
-                  <td>+ HIS: CA com 50% EHIS<br>
-                    <span style="font-size:9px;color:var(--muted)">Projeto vira EHIS — isenção parcial de OODC no incremento</span>
+                  <td>+ HIS: +${(pot.his_pct*100).toFixed(0)}% sobre CA base<br>
+                    <span style="font-size:9px;color:var(--muted)">Projeto vira EHIS — OODC isenta no incremento</span>
                   </td>
-                  <td><span class="report-val-highlight">${fCA(pot.caMax_his)}</span> → ${pot.areaComp_his.toLocaleString('pt-BR')}m²</td>
+                  <td style="color:var(--kv-blue)">${fC2(pot.caMax_his)}</td>
+                  <td>${fmt(pot.areaComp_his)}m²</td>
                 </tr>` : ''}
                 ${pot.tem_hmp ? `<tr>
-                  <td>+ HMP: CA com 25% EHMP</td>
-                  <td>${fCA(pot.caMax_hmp)} → ${pot.areaComp_hmp.toLocaleString('pt-BR')}m²</td>
+                  <td>+ HMP: +${(pot.hmp_pct*100).toFixed(0)}% sobre CA base</td>
+                  <td style="color:var(--kv-blue)">${fC2(pot.caMax_hmp)}</td>
+                  <td>${fmt(pot.areaComp_hmp)}m²</td>
+                </tr>` : ''}
+                ${(pot.tem_his && pot.tem_hmp) ? `<tr style="border-top:1px solid var(--border2)">
+                  <td>HIS + HMP acumulados</td>
+                  <td style="color:var(--kv-blue)">${fC2(pot.caMax_his_hmp)}</td>
+                  <td>${fmt(pot.areaComp_his_hmp)}m²</td>
                 </tr>` : ''}
                 ${pot.tem_cs ? `<tr>
-                  <td>+ Cota de Solidariedade: +${(pot.cs_pct*100).toFixed(0)}%<br>
-                    <span style="font-size:9px;color:var(--muted)">${cs?.facultativa?'Facultativa':'Obrigatória'}${cs?.obrigatorio_acima_m2?` · obrig. se área comp. > ${(cs.obrigatorio_acima_m2/1000).toFixed(0)}.000m²`:''} — contrapartida: 10% em HIS</span>
+                  <td>+ Cota de Solidariedade sozinha: +${(pot.cs_pct*100).toFixed(0)}% sobre CA base<br>
+                    <span style="font-size:9px;color:var(--muted)">${cs?.facultativa?'Facultativa':'Obrigatória'}${cs?.obrigatorio_acima_m2?` · obrig. se área comp. > ${(cs.obrigatorio_acima_m2/1000).toFixed(0)}.000m²`:''}</span>
                   </td>
-                  <td>${fCA(pot.caMax_cs)} → ${pot.areaComp_cs.toLocaleString('pt-BR')}m²</td>
-                </tr>
-                <tr style="border-top:1px solid var(--border2)">
-                  <td><strong>CA Máx. com HIS + CS</strong> (melhor cenário Grupo A)</td>
-                  <td><span class="report-val-highlight">${fCA(pot.caMax_his_cs)}</span> → ${pot.areaComp_his_cs.toLocaleString('pt-BR')}m²</td>
-                </tr>` : ''}
-                <tr style="background:rgba(61,219,160,.04)">
-                  <td colspan="2" style="color:var(--green);font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:6px 12px;padding-top:10px">
-                    GRUPO B — ÁREAS NÃO COMPUTÁVEIS (ampliam construção total sem alterar o CA máximo)
-                  </td>
-                </tr>
-                <tr>
-                  <td>Fachada Ativa nR (Art.62 inc.VII/VIII)<br>
-                    <span style="font-size:9px;color:var(--muted)">${pot.fa50pct?'ZEU/ZC/ZEM: até 50%':'Demais zonas: até 20%'} da área do lote</span>
-                  </td>
-                  <td style="color:var(--green)">+${Math.round(pot.nc_fa).toLocaleString('pt-BR')}m²</td>
-                </tr>
-                <tr>
-                  <td>Empreendimento sem vagas (Art.62 §1º al.d — Lei 18.081/24)<br>
-                    <span style="font-size:9px;color:var(--muted)">Até 10% da área computável torna-se não computável</span>
-                  </td>
-                  <td style="color:var(--green)">+${Math.round(pot.nc_semvaga).toLocaleString('pt-BR')}m²</td>
-                </tr>
-                <tr style="border-top:2px solid var(--border2)">
-                  <td><strong>Potencial total — cenário base</strong><br>
-                    <span style="font-size:9px;color:var(--muted)">CA base + fachada ativa + vaga zero</span>
-                  </td>
-                  <td><span style="color:var(--kv-blue);font-size:13px;font-weight:700">${pot.pot_base.toLocaleString('pt-BR')}m²</span><br>
-                    <span style="font-size:9px;color:var(--muted)">CA equiv.: ${fCA(pot.ca_equiv_base)}</span>
-                  </td>
+                  <td>${fC2(pot.caMax_cs)}</td>
+                  <td>${fmt(pot.areaComp_base + Math.round(pot.caMax_cs*pot.At) - pot.areaComp_base)}m² adicionais</td>
                 </tr>
                 ${pot.tem_his ? `<tr>
-                  <td><strong>Potencial total — HIS + CS + não comp.</strong><br>
-                    <span style="font-size:9px;color:var(--muted)">Melhor cenário combinando Grupos A e B</span>
+                  <td>HIS + CS sobre HIS<br>
+                    <span style="font-size:9px;color:var(--muted)">CS calculada sobre CA pós-HIS: ${fC2(pot.caMax_his)} × ${(1+pot.cs_pct).toFixed(2)}</span>
                   </td>
-                  <td><span class="report-val-highlight">${pot.pot_his_cs.toLocaleString('pt-BR')}m²</span><br>
-                    <span style="font-size:9px;color:var(--muted)">CA equiv.: ${fCA(pot.ca_equiv_his_cs)}</span>
+                  <td style="color:var(--kv-blue)">${fC2(pot.caMax_his_cs)}</td>
+                  <td>${fmt(pot.areaComp_his_cs)}m²</td>
+                </tr>` : ''}
+                <tr style="border-top:2px solid var(--kv-blue);background:rgba(0,172,205,.06)">
+                  <td><strong>TODOS OS INCENTIVOS: HIS + HMP + CS</strong><br>
+                    <span style="font-size:9px;color:var(--muted)">CS calculada sobre CA pós-HIS+HMP: ${fC2(pot.caMax_his_hmp)} × ${(1+pot.cs_pct).toFixed(2)}</span>
                   </td>
+                  <td style="color:var(--kv-blue);font-size:14px"><strong>${pot.caMax_all.toFixed(2)}</strong></td>
+                  <td style="color:var(--kv-blue)"><strong>${fmt(pot.areaComp_all)}m²</strong></td>
+                </tr>` : ''}
+
+                <tr style="background:rgba(61,219,160,.04)">
+                  <td colspan="3" style="color:var(--green);font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:5px 12px;padding-top:10px">
+                    GRUPO B — ÁREAS NÃO COMPUTÁVEIS (não alteram CA máx, ampliam construção total)
+                  </td>
+                </tr>
+                <tr>
+                  <td>Fachada Ativa nR — Art.62 inc.VII/VIII<br>
+                    <span style="font-size:9px;color:var(--muted)">${pot.fa50pct?'50%':'20%'} da área do lote</span>
+                  </td>
+                  <td style="color:var(--green)">—</td>
+                  <td style="color:var(--green)">+${fmt(Math.round(pot.nc_fa))}m²</td>
+                </tr>
+                <tr>
+                  <td>Sem vagas — Art.62 §1º al.d (Lei 18.081/24)<br>
+                    <span style="font-size:9px;color:var(--muted)">10% da área computável base</span>
+                  </td>
+                  <td style="color:var(--green)">—</td>
+                  <td style="color:var(--green)">+${fmt(Math.round(pot.nc_svaga))}m²</td>
+                </tr>
+
+                <tr style="border-top:2px solid var(--border2)">
+                  <td><strong>Potencial total — cenário base + Grupo B</strong></td>
+                  <td style="color:var(--kv-blue)">${fC2(pot.ca_equiv_base)} equiv.</td>
+                  <td><strong>${fmt(pot.pot_base)}m²</strong></td>
+                </tr>
+                ${pot.tem_his ? `<tr style="background:rgba(0,172,205,.04)">
+                  <td><strong>Potencial máximo — todos incentivos + Grupo B</strong></td>
+                  <td style="color:var(--kv-blue);font-size:13px"><strong>${fC2(pot.ca_equiv_all)}</strong> equiv.</td>
+                  <td style="color:var(--kv-blue);font-size:13px"><strong>${fmt(pot.pot_all)}m²</strong></td>
                 </tr>` : ''}
               </table>
-              <div class="report-note">
-                <strong>Grupo A</strong> (HIS, HMP, CS) aumenta o CA máximo — mais área computável, sujeita a OODC acima do CA básico (exceto HIS que tem isenção de OODC no incremento). <strong>Grupo B</strong> (fachada ativa, vaga zero) são áreas construtíveis que não entram no CA nem na OODC. A combinação HIS + Cota de Solidariedade + Fachada Ativa é o cenário de maior potencial total.
+
+              <div class="report-note" style="margin-top:6px">
+                <strong>Referências legais por tamanho de terreno:</strong>
+                TO máx. ≤500m²: ${params.to_500?(params.to_500*100).toFixed(0)+'%':'—'} &nbsp;|&nbsp;
+                TO máx. >500m²: ${params.to_500p?(params.to_500p*100).toFixed(0)+'%':'—'} &nbsp;|&nbsp;
+                Cota garagem: ${params.cota_garagem_max?params.cota_garagem_max+'m²/vaga':'sem limite'} &nbsp;|&nbsp;
+                CS obrigatória: ${cs?.obrigatorio_acima_m2?'área comp. > '+(cs.obrigatorio_acima_m2/1000).toFixed(0)+'.000m²':'não se aplica'} &nbsp;|&nbsp;
+                ZEIS: CA máx reduzido se lote &lt;500–1.000m² (ver obs. da zona).
               </div>
             </div>`;
           }
@@ -2099,6 +2132,59 @@ async function _runReport(features) {
         html += `<div class="report-alert">⚠ Zona <strong>${code}</strong> não encontrada na tabela local. Consultar SMUL ou Quadro 2 da Lei 16.402/16.</div>`;
       }
     }
+
+    // ── Seção separada: Operações Urbanas e sobreposições legislativas ─
+    if (ous.length > 0) {
+      html += `<div class="report-section" style="border-left:3px solid var(--warn);margin-top:4px">
+        <div class="report-section-title" style="color:var(--warn)">SOBREPOSIÇÃO LEGISLATIVA — OPERAÇÃO(ÕES) URBANA(S)</div>
+        <div class="report-note" style="border-top:none;color:var(--text)">
+          As Operações Urbanas possuem legislação, parâmetros e instrumentos próprios (CEPACs),
+          que convivem <strong>paralelamente</strong> com o zoneamento LPUOS acima. Elas não substituem
+          o CA do Quadro 3 — são potenciais adicionais adquiridos via CEPAC em bolsa.
+        </div>
+      </div>`;
+      for (const ou of ous) {
+        const ouInfo = OU_PARAMS[ou.sg_operacao_urbana];
+        html += `<div class="report-section">
+          <div class="report-section-title" style="font-size:10px;padding:10px 12px">
+            <span class="report-ou-tag" style="font-size:11px;padding:3px 10px">${ou.sg_operacao_urbana||'OU'}</span>
+            &nbsp;${ou.nm_operacao_urbana||ouInfo?.nome||'Operação Urbana'}
+          </div>
+          <table class="report-table">
+            <tr>
+              <td>Lei / Instrumento</td>
+              <td style="color:var(--warn)">${ouInfo ? ouInfo.obs.split('.')[0] : 'Verificar legislação específica'}</td>
+            </tr>
+            <tr>
+              <td>CA Máximo via CEPAC</td>
+              <td style="color:var(--warn)">${ouInfo ? ouInfo.ca_max_ou.toFixed(2) : '—'}</td>
+            </tr>
+            <tr>
+              <td>Potencial adicional disponível via CEPAC<br>
+                <span style="font-size:9px;color:var(--muted)">CA_CEPAC − CA_Quadro3 da zona</span>
+              </td>
+              <td style="color:var(--warn)">${
+                ouInfo && typeof caMax === 'number'
+                  ? '+' + (ouInfo.ca_max_ou - caMax).toFixed(2) + ' CA adicional'
+                  : '—'
+              }</td>
+            </tr>
+          </table>
+          <div class="report-note">CEPACs são adquiridos em leilão (B3) a preço de mercado e vinculados a setores específicos da OU. O CA via CEPAC é cumulativo ao CA da zona, mas sujeito a limites por setor. Verificar: planta de setores, estoque disponível e preço corrente do CEPAC junto à PMSP/SP Urbanismo.</div>
+        </div>`;
+      }
+    }
+
+    // ── Nota: AIU e Arcos — verificação manual ──────────────────────────
+    html += `<div class="report-section" style="opacity:.8">
+      <div class="report-section-title">OUTRAS SOBREPOSIÇÕES — Verificar Manualmente</div>
+      <table class="report-table">
+        <tr><td>AIU — Área de Intervenção Urbana</td><td><span class="report-val-warn">Verificar Leg. Urbana / GeoSampa</span></td></tr>
+        <tr><td>Arco Metropolitano / Pinheiros / Tietê</td><td><span class="report-val-warn">Verificar PDE — parâmetros específicos</span></td></tr>
+        <tr><td>ZEPEC / AUE / BH Tombado</td><td><span class="report-val-warn">Verificar CIT / CONPRESP / IPHAN</span></td></tr>
+        <tr><td>CTLU — Deliberações</td><td><span class="report-val-warn">Verificar Legislação Urbanística SP</span></td></tr>
+      </table>
+    </div>`;
 
     // ── Restrições detectadas automaticamente ────────────────────────
     const restricoes = [];
@@ -2656,7 +2742,7 @@ window.updateModeHint();
 </script>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 12px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#333;pointer-events:none;z-index:10;border-top:1px solid #1a1a1a;letter-spacing:.06em">
     <span>GEOSAMPA IMPORT · WFS MULTI-CAMADAS</span>
-    <span style="color:#00ACCD">V24</span>
+    <span style="color:#00ACCD">V25</span>
   </div>
 </body>
 </html>
