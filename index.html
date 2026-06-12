@@ -601,278 +601,120 @@
 import { giraffeState, rpc } from 'https://esm.sh/@gi-nx/iframe-sdk@latest';
 
 // ══════════════════════════════════════════════════════════════════
-// CATÁLOGO — nomes reais verificados via GetCapabilities
-// ══════════════════════════════════════════════════════════════════
-// Total: 265 camadas
-const LAYER_CATALOG = [
-  { id:'geoportal:lote_cidadao', label:'Lote (Cidadão)', category:'Cadastro', maxF:300 },
-  { id:'geoportal:edificacao', label:'Edificações', category:'Cadastro', maxF:500 },
-  { id:'geoportal:setor_fiscal', label:'Setor Fiscal', category:'Cadastro', maxF:100 },
-  { id:'geoportal:quadra_fiscal', label:'Quadra Fiscal', category:'Cadastro', maxF:200 },
-  { id:'geoportal:quadra_viaria_editada', label:'Quadra Viária', category:'Cadastro', maxF:200 },
-  { id:'geoportal:lote_incidencia_quadro_2', label:'Lote Incidência Quadro 2', category:'Cadastro', maxF:200 },
-  { id:'geoportal:conjunto', label:'Conjunto Habitacional', category:'Cadastro', maxF:200 },
-  { id:'geoportal:marco', label:'Marco Geodésico', category:'Cadastro', maxF:200 },
-  { id:'geoportal:proprio_municipal', label:'Próprio Municipal', category:'Cadastro', maxF:200 },
-  { id:'geoportal:imovel_notificado', label:'Imóvel Notificado', category:'Cadastro', maxF:200 },
-  { id:'geoportal:zoneamento_2016_map1', label:'Zoneamento (Lei 16.402/16)', category:'Planejamento', maxF:100 },
-  { id:'geoportal:zoneamento_classificacao_viaria', label:'Zoneamento — Class. Viária', category:'Planejamento', maxF:100 },
-  { id:'geoportal:zoneamento_corredor_uso', label:'Zoneamento — Corredor de Uso', category:'Planejamento', maxF:100 },
-  { id:'geoportal:zona_especial_preservacao_cultural_apc', label:'ZEPEC-APC', category:'Planejamento', maxF:100 },
-  { id:'geoportal:zona_fiscal', label:'Zona Fiscal', category:'Planejamento', maxF:100 },
-  { id:'geoportal:zona_azul', label:'Zona Azul', category:'Planejamento', maxF:200 },
-  { id:'geoportal:zona_ocupacao_especial_aiu', label:'Zona Ocupação Especial (AIU)', category:'Planejamento', maxF:100 },
-  { id:'geoportal:zona_origem_destino', label:'Zona Origem Destino', category:'Planejamento', maxF:50 },
-  { id:'geoportal:operacao_urbana', label:'Operação Urbana', category:'Planejamento', maxF:50 },
-  { id:'geoportal:subsetor_operacao_urbana', label:'Subsetor Op. Urbana', category:'Planejamento', maxF:80 },
-  { id:'geoportal:perimetro_zona_lei_18177_24', label:'Zones Lei 18.177/24', category:'Planejamento', maxF:50 },
-  { id:'geoportal:perimetro_zoneamento_revogado_lei13885', label:'Zoneamento Revogado Lei 13.885', category:'Planejamento', maxF:50 },
-  { id:'geoportal:perimetro_aiu', label:'Perímetro AIU', category:'Planejamento', maxF:50 },
-  { id:'geoportal:perimetro_especial_aiu', label:'Perímetro Especial AIU', category:'Planejamento', maxF:50 },
-  { id:'geoportal:perimetro_tpc_aiu', label:'Perímetro TPC AIU', category:'Planejamento', maxF:50 },
-  { id:'geoportal:outorga_onerosa', label:'Outorga Onerosa', category:'Planejamento', maxF:100 },
-  { id:'geoportal:cota_solidariedade', label:'Cota de Solidariedade', category:'Planejamento', maxF:100 },
-  { id:'geoportal:deliberacao_ctlu', label:'Deliberação CTLU', category:'Planejamento', maxF:100 },
-  { id:'geoportal:diretriz', label:'Diretrizes Urbanísticas', category:'Planejamento', maxF:100 },
-  { id:'geoportal:enquadramento_vila', label:'Enquadramento de Vila', category:'Planejamento', maxF:100 },
-  { id:'geoportal:zeis_revogada', label:'ZEIS Revogada', category:'Planejamento', maxF:100 },
-  { id:'geoportal:eixo_ativado_decreto', label:'Eixo Ativado por Decreto', category:'Planejamento', maxF:100 },
-  { id:'geoportal:eixo_estrategico_transformacao_aiu', label:'Eixo Estratégico Transf. AIU', category:'Planejamento', maxF:100 },
-  { id:'geoportal:plano_acao_regional', label:'Plano de Ação Regional', category:'Planejamento', maxF:50 },
-  { id:'geoportal:plano_macro_regional', label:'Plano Macrorregional', category:'Planejamento', maxF:20 },
-  { id:'geoportal:requalifica_centro_perimetro_geral', label:'Requalifica Centro', category:'Planejamento', maxF:50 },
-  { id:'geoportal:pde_macroarea_lei_18209', label:'Macroarea PDE Lei 18.209', category:'Planejamento', maxF:20 },
-  { id:'geoportal:pde_estrategia_desenvolvimento_economico', label:'PDE — Estratégia Desenv. Econômico', category:'Planejamento', maxF:50 },
-  { id:'geoportal:pde_fator_planejamento_residencial', label:'PDE — Fator Planej. Residencial', category:'Planejamento', maxF:100 },
-  { id:'geoportal:pde_fator_planejamento_nao_residencial', label:'PDE — Fator Planej. Não Residencial', category:'Planejamento', maxF:100 },
-  { id:'geoportal:pde_territorio_interesse_cultura_paisagem', label:'PDE — Território Cultura/Paisagem', category:'Planejamento', maxF:50 },
-  { id:'geoportal:pde_viario_estrutural', label:'PDE — Viário Estrutural', category:'Planejamento', maxF:100 },
-  { id:'geoportal:pde_intervencao_pontual_melhoramento_viario', label:'PDE — Intervenção Viária Pontual', category:'Planejamento', maxF:100 },
-  { id:'geoportal:planta_dup_dis_pd', label:'Planta DUP/DIS PD', category:'Planejamento', maxF:100 },
-  { id:'geoportal:planta_expropriatoria_pd', label:'Planta Expropriatória PD', category:'Planejamento', maxF:100 },
-  { id:'geoportal:planta_expropriatoria_indireta_pd', label:'Planta Expropriatória Indireta PD', category:'Planejamento', maxF:100 },
-  { id:'geoportal:concessao_parceria', label:'Concessão e Parceria', category:'Planejamento', maxF:50 },
-  { id:'geoportal:subvencao_economica', label:'Subvenção Econômica', category:'Planejamento', maxF:100 },
-  { id:'geoportal:densidade_demografica', label:'Densidade Demográfica', category:'Planejamento', maxF:100 },
-  { id:'geoportal:uso_predominante_solo_2014_simples', label:'Uso do Solo 2014', category:'Planejamento', maxF:200 },
-  { id:'geoportal:uso_predominante_solo_2018_simples', label:'Uso do Solo 2018', category:'Planejamento', maxF:200 },
-  { id:'geoportal:uso_predominante_solo_2021_simples', label:'Uso do Solo 2021', category:'Planejamento', maxF:200 },
-  { id:'geoportal:diagnostico_socioambiental_-_potencialidades', label:'Diagnóstico Socioambiental — Potencial', category:'Planejamento', maxF:100 },
-  { id:'geoportal:diagnostico_socioambiental_-_riscos', label:'Diagnóstico Socioambiental — Riscos', category:'Planejamento', maxF:100 },
-  { id:'geoportal:indice_paulista_vulnerabilidadesocial', label:'Índice Paulista Vulnerab. Social', category:'Planejamento', maxF:100 },
-  { id:'geoportal:habitacao_popular', label:'Habitação Popular', category:'Planejamento', maxF:200 },
-  { id:'geoportal:area_contexto', label:'Área de Contexto', category:'Planejamento', maxF:50 },
-  { id:'geoportal:area_qualificacao_transformacao_aiu', label:'Área Qualificação/Transf. AIU', category:'Planejamento', maxF:100 },
-  { id:'geoportal:linha_metro', label:'Metrô — Linhas', category:'Transporte', maxF:20 },
-  { id:'geoportal:linha_metro_projetada', label:'Metrô — Linhas Projetadas', category:'Transporte', maxF:20 },
-  { id:'geoportal:estacao_metro', label:'Metrô — Estações', category:'Transporte', maxF:100 },
-  { id:'geoportal:estacao_metro_projetada', label:'Metrô — Estações Projetadas', category:'Transporte', maxF:100 },
-  { id:'geoportal:linha_trem', label:'CPTM — Linhas', category:'Transporte', maxF:30 },
-  { id:'geoportal:linha_trem_projetada', label:'CPTM — Linhas Projetadas', category:'Transporte', maxF:20 },
-  { id:'geoportal:estacao_trem', label:'CPTM — Estações', category:'Transporte', maxF:100 },
-  { id:'geoportal:estacao_trem_projetada', label:'CPTM — Estações Projetadas', category:'Transporte', maxF:100 },
-  { id:'geoportal:ferrovia_mdc', label:'Ferrovia MDC', category:'Transporte', maxF:200 },
-  { id:'geoportal:corredor_onibus', label:'Corredores de Ônibus', category:'Transporte', maxF:100 },
-  { id:'geoportal:faixa_onibus', label:'Faixas Exclusivas de Ônibus', category:'Transporte', maxF:500 },
-  { id:'geoportal:linha_onibus', label:'Linhas de Ônibus', category:'Transporte', maxF:300 },
-  { id:'geoportal:ponto_onibus', label:'Pontos de Ônibus', category:'Transporte', maxF:500 },
-  { id:'geoportal:terminal_onibus', label:'Terminais de Ônibus', category:'Transporte', maxF:50 },
-  { id:'geoportal:estacao_transbordo', label:'Estações de Transbordo', category:'Transporte', maxF:50 },
-  { id:'geoportal:pde_transporte_linha', label:'PDE — Linhas de Transporte', category:'Transporte', maxF:100 },
-  { id:'geoportal:pde_transporte_estacao_terminal', label:'PDE — Estações/Terminais', category:'Transporte', maxF:100 },
-  { id:'geoportal:area_influencia_metro', label:'Área de Influência Metrô', category:'Transporte', maxF:3, heavyGeom:true },
-  { id:'geoportal:area_influencia_trem', label:'Área de Influência CPTM', category:'Transporte', maxF:3, heavyGeom:true },
-  { id:'geoportal:via_bicicleta', label:'Ciclovias e Ciclofaixas', category:'Transporte', maxF:300 },
-  { id:'geoportal:bicicletario_paraciclo', label:'Bicicletários e Paraciclos', category:'Transporte', maxF:200 },
-  { id:'geoportal:contagem_linha_base_ciclista', label:'Contagem de Ciclistas', category:'Transporte', maxF:100 },
-  { id:'geoportal:hierarquia_pedestre', label:'Hierarquia Pedestre', category:'Transporte', maxF:200 },
-  { id:'geoportal:semaforo', label:'Semáforos', category:'Transporte', maxF:300 },
-  { id:'geoportal:restricao_circulacao_veiculo_zmrc', label:'Restrição Circulação — ZMRC', category:'Transporte', maxF:100 },
-  { id:'geoportal:restricao_circulacao_veiculo_zmrf', label:'Restrição Circulação — ZMRF', category:'Transporte', maxF:100 },
-  { id:'geoportal:restricao_circulacao_veiculo_mian', label:'Restrição Circulação — MIAN', category:'Transporte', maxF:100 },
-  { id:'geoportal:acidente_cet', label:'Acidentes CET', category:'Transporte', maxF:300 },
-  { id:'geoportal:classificacao_viaria_cet', label:'Classificação Viária CET', category:'Transporte', maxF:200 },
-  { id:'geoportal:classificacao_viaria_quadro_9', label:'Classificação Viária Quadro 9', category:'Transporte', maxF:200 },
-  { id:'geoportal:vaga_especial', label:'Vagas Especiais', category:'Transporte', maxF:200 },
-  { id:'geoportal:estabelecimento_vaga_especial', label:'Estabelecimentos c/ Vaga Especial', category:'Transporte', maxF:200 },
-  { id:'geoportal:ponto_intervia', label:'Pontos Intervia', category:'Transporte', maxF:200 },
-  { id:'geoportal:passagem', label:'Passagens', category:'Transporte', maxF:200 },
-  { id:'geoportal:segmento_logradouro', label:'Logradouros', category:'Viário', maxF:400 },
-  { id:'geoportal:calcada', label:'Calçadas', category:'Viário', maxF:500 },
-  { id:'geoportal:arruamento_aprovado', label:'Arruamento Aprovado', category:'Viário', maxF:200 },
-  { id:'geoportal:arruamento_regularizado', label:'Arruamento Regularizado', category:'Viário', maxF:200 },
-  { id:'geoportal:desmembramento_gleba', label:'Desmembramento de Gleba', category:'Viário', maxF:200 },
-  { id:'geoportal:geoconvias_faixa_nao_edificavel', label:'Faixa Não Edificável (GeoConvias)', category:'Viário', maxF:200 },
-  { id:'geoportal:geoconvias_lei_melhoramento_vigente', label:'Lei de Melhoramento Vigente', category:'Viário', maxF:200 },
-  { id:'geoportal:iluminacao_publica', label:'Iluminação Pública', category:'Viário', maxF:400 },
-  { id:'geoportal:acessibilidade_smped', label:'Acessibilidade SMPED', category:'Viário', maxF:200 },
-  { id:'geoportal:area_verde_aiu', label:'Áreas Verdes (AIU)', category:'Meio Ambiente', maxF:200 },
-  { id:'geoportal:pde_parque_municipal', label:'Parques Municipais (PDE)', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:pde_area_protecao_ambiental_apa', label:'APA (PDE)', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:pde_outra_unidade_conservacao', label:'Outras Unidades de Conservação', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:cobertura_vegetal', label:'Cobertura Vegetal', category:'Meio Ambiente', maxF:200 },
-  { id:'geoportal:corredor_ecologico', label:'Corredores Ecológicos', category:'Meio Ambiente', maxF:100 },
-  { id:'geoportal:remanescente_pmma', label:'Remanescente PMMA', category:'Meio Ambiente', maxF:100 },
-  { id:'geoportal:manancial_guarapiranga', label:'Manancial Guarapiranga', category:'Meio Ambiente', maxF:20 },
-  { id:'geoportal:manancial_billings', label:'Manancial Billings', category:'Meio Ambiente', maxF:20 },
-  { id:'geoportal:manancial_juquery', label:'Manancial Juquery', category:'Meio Ambiente', maxF:20 },
-  { id:'geoportal:bacia_hidrografica', label:'Bacia Hidrográfica', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:hidrografia_restituida', label:'Hidrografia', category:'Meio Ambiente', maxF:300 },
-  { id:'geoportal:hidrografia_ilha', label:'Hidrografia — Ilhas', category:'Meio Ambiente', maxF:200 },
-  { id:'geoportal:massa_d_agua', label:'Massa d\'Água', category:'Meio Ambiente', maxF:100 },
-  { id:'geoportal:represa_nivel_maximo', label:'Represa — Nível Máximo', category:'Meio Ambiente', maxF:20 },
-  { id:'geoportal:arvore', label:'Árvores (cadastro)', category:'Meio Ambiente', maxF:500 },
-  { id:'geoportal:area_contaminada_reabilitada_svma', label:'Área Contaminada (SVMA)', category:'Meio Ambiente', maxF:200 },
-  { id:'geoportal:potencial_infiltracao', label:'Potencial de Infiltração', category:'Meio Ambiente', maxF:100 },
-  { id:'geoportal:declividade', label:'Declividade', category:'Meio Ambiente', maxF:200 },
-  { id:'geoportal:unidade_produtiva_rural', label:'Unidade Produtiva Rural', category:'Meio Ambiente', maxF:100 },
-  { id:'geoportal:patio_compostagem', label:'Pátio de Compostagem', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:aterro_sanitario', label:'Aterro Sanitário', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:aterro_rcc', label:'Aterro RCC', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:ecoponto', label:'Ecopontos', category:'Meio Ambiente', maxF:100 },
-  { id:'geoportal:ponto_entrega_voluntaria', label:'Pontos de Entrega Voluntária', category:'Meio Ambiente', maxF:200 },
-  { id:'geoportal:central_triagem_cooperativa', label:'Central de Triagem — Cooperativa', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:central_triagem_mecanizada', label:'Central de Triagem — Mecanizada', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:tratamento_residuo_solido_saude', label:'Tratamento Resíduo Sólido Saúde', category:'Meio Ambiente', maxF:50 },
-  { id:'geoportal:area_inundavel', label:'Área Inundável', category:'Riscos', maxF:100 },
-  { id:'geoportal:area_risco_geologico', label:'Risco Geológico', category:'Riscos', maxF:100 },
-  { id:'geoportal:carta_geotecnica', label:'Carta Geotécnica', category:'Riscos', maxF:100 },
-  { id:'geoportal:restricao_geotecnica', label:'Restrição Geotécnica', category:'Riscos', maxF:100 },
-  { id:'geoportal:solo_mole', label:'Solo Mole', category:'Riscos', maxF:100 },
-  { id:'geoportal:risco_hidrologico', label:'Risco Hidrológico', category:'Riscos', maxF:100 },
-  { id:'geoportal:risco_ocorrencia_alagamento', label:'Risco de Alagamento', category:'Riscos', maxF:100 },
-  { id:'geoportal:risco_ocorrencia_inundacao', label:'Risco de Inundação', category:'Riscos', maxF:100 },
-  { id:'geoportal:risco_ocorrencia_deslizamento', label:'Risco de Deslizamento', category:'Riscos', maxF:100 },
-  { id:'geoportal:risco_ocorrencia_risco_deslizamento', label:'Risco de Deslizamento (Alt.)', category:'Riscos', maxF:100 },
-  { id:'geoportal:risco_ocorrencia_queda_arvore', label:'Risco Queda de Árvore', category:'Riscos', maxF:100 },
-  { id:'geoportal:mancha_inundacao_5', label:'Mancha de Inundação TR5', category:'Riscos', maxF:100 },
-  { id:'geoportal:mancha_inundacao_25', label:'Mancha de Inundação TR25', category:'Riscos', maxF:100 },
-  { id:'geoportal:mancha_inundacao_100', label:'Mancha de Inundação TR100', category:'Riscos', maxF:100 },
-  { id:'geoportal:restricao_mirante_santana', label:'Restrição Mirante Santana', category:'Riscos', maxF:20 },
-  { id:'geoportal:drenagem', label:'Drenagem', category:'Drenagem', maxF:300 },
-  { id:'geoportal:caderno_drenagem', label:'Caderno de Drenagem', category:'Drenagem', maxF:100 },
-  { id:'geoportal:plano_diretor_drenagem', label:'Plano Diretor de Drenagem', category:'Drenagem', maxF:50 },
-  { id:'geoportal:obra_drenagem_planejada', label:'Obras de Drenagem Planejadas', category:'Drenagem', maxF:100 },
-  { id:'geoportal:reservatorio_amortecimento', label:'Reservatório de Amortecimento', category:'Drenagem', maxF:50 },
-  { id:'geoportal:pde_drenagem_acao_prioritaria_linear', label:'PDE — Drenagem Linear Prioritária', category:'Drenagem', maxF:100 },
-  { id:'geoportal:pde_drenagem_acao_prioritaria_pontual', label:'PDE — Drenagem Pontual Prioritária', category:'Drenagem', maxF:100 },
-  { id:'geoportal:pluviometro', label:'Pluviômetros', category:'Drenagem', maxF:100 },
-  { id:'geoportal:curva_mestra', label:'Curva de Nível Mestra', category:'Drenagem', maxF:300 },
-  { id:'geoportal:curva_intermediaria', label:'Curva de Nível Intermediária', category:'Drenagem', maxF:400 },
-  { id:'geoportal:ponto_cotado', label:'Pontos Cotados', category:'Drenagem', maxF:400 },
-  { id:'geoportal:abastecimento_adutora', label:'Abastecimento — Adutoras', category:'Saneamento', maxF:200 },
-  { id:'geoportal:pde_abastecimento_equipamento_sistema_isolado', label:'PDE — Abastecimento Isolado', category:'Saneamento', maxF:100 },
-  { id:'geoportal:esgotamento_rede', label:'Esgotamento — Rede', category:'Saneamento', maxF:300 },
-  { id:'geoportal:pde_esgotamento_estacao_tratamento_sistema_isolado', label:'PDE — ETE Sistema Isolado', category:'Saneamento', maxF:100 },
-  { id:'geoportal:linha_alta_tensao', label:'Linha de Alta Tensão', category:'Energia', maxF:200 },
-  { id:'geoportal:linha_subterranea_alta_tensao', label:'Linha Subterrânea Alta Tensão', category:'Energia', maxF:200 },
-  { id:'geoportal:torre_alta_tensao', label:'Torres de Alta Tensão', category:'Energia', maxF:200 },
-  { id:'geoportal:transpetro_duto', label:'Transpetro — Dutos', category:'Energia', maxF:100 },
-  { id:'geoportal:transpetro_marco', label:'Transpetro — Marcos', category:'Energia', maxF:100 },
-  { id:'geoportal:estacao_radio_base', label:'Estações Rádio Base (ERBs)', category:'Energia', maxF:300 },
-  { id:'geoportal:patrimonio_cultural_bem_tombado', label:'Bem Tombado', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_bem_registrado', label:'Bem Registrado', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_acervo_tombado', label:'Acervo Tombado', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_monumento', label:'Monumentos', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_bairro_ambiental', label:'Bairro Ambiental', category:'Patrimônio', maxF:50 },
-  { id:'geoportal:patrimonio_cultural_memoria_paulistana', label:'Memória Paulistana', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_lugar_paisagistico_ambiental', label:'Lugar Paisagístico/Ambiental', category:'Patrimônio', maxF:50 },
-  { id:'geoportal:patrimonio_cultural_selo_valor_cultural', label:'Selo de Valor Cultural', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_sitio_arqueologico', label:'Sítio Arqueológico', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_bem_arqueologico', label:'Bem Arqueológico', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_area_arqueologica', label:'Área Arqueológica', category:'Patrimônio', maxF:50 },
-  { id:'geoportal:patrimonio_cultural_ocorrencia_arqueologica', label:'Ocorrência Arqueológica', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_area_envoltoria_CONPRESP', label:'Área de Envoltória CONPRESP', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_area_envoltoria_CONDEPHAAT', label:'Área de Envoltória CONDEPHAAT', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:patrimonio_cultural_area_envoltoria_IPHAN', label:'Área de Envoltória IPHAN', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:memoria_verdade', label:'Memória e Verdade', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:obra_arte', label:'Obras de Arte', category:'Patrimônio', maxF:100 },
-  { id:'geoportal:equipamento_saude_hospital', label:'Hospital', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_ubs_posto_centro', label:'UBS / Posto / Centro de Saúde', category:'Saúde', maxF:200 },
-  { id:'geoportal:equipamento_saude_urgencia_emergencia', label:'Urgência e Emergência', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_ambulatorios_especializados', label:'Ambulatórios Especializados', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_saude_mental', label:'Saúde Mental', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_cobertura_familia', label:'Saúde da Família', category:'Saúde', maxF:200 },
-  { id:'geoportal:equipamento_saude_abrangencia_ubs', label:'Abrangência UBS', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_coordenadoria_regional', label:'Coordenadoria Regional de Saúde', category:'Saúde', maxF:50 },
-  { id:'geoportal:equipamento_saude_supervisao_tecnica', label:'Supervisão Técnica de Saúde', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_vigilancia_saude', label:'Vigilância em Saúde', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_unidades_dst-aids', label:'Unidades DST/AIDS', category:'Saúde', maxF:100 },
-  { id:'geoportal:equipamento_saude_outros', label:'Saúde — Outros', category:'Saúde', maxF:100 },
-  { id:'geoportal:caps_ad', label:'CAPS AD', category:'Saúde', maxF:100 },
-  { id:'geoportal:complexo_saude_existente', label:'Complexo de Saúde Existente', category:'Saúde', maxF:50 },
-  { id:'geoportal:equipamento_educacao_rede_publica', label:'Escolas — Rede Pública', category:'Educação', maxF:300 },
-  { id:'geoportal:equipamento_educacao_rede_privada', label:'Escolas — Rede Privada', category:'Educação', maxF:300 },
-  { id:'geoportal:equipamento_educacao_infantil_rede_publica', label:'Educação Infantil — Pública', category:'Educação', maxF:300 },
-  { id:'geoportal:equipamento_educacao_ceu', label:'CEU', category:'Educação', maxF:50 },
-  { id:'geoportal:equipamento_educacao_ensino_tecnico_rede_publica', label:'Ensino Técnico — Público', category:'Educação', maxF:100 },
-  { id:'geoportal:equipamento_educacao_senai_sesi_senac', label:'SENAI / SESI / SENAC', category:'Educação', maxF:100 },
-  { id:'geoportal:equipamento_educacao_outros', label:'Educação — Outros', category:'Educação', maxF:100 },
-  { id:'geoportal:diretoria_regional_educacao', label:'Diretoria Regional de Educação', category:'Educação', maxF:50 },
-  { id:'geoportal:setor_educacional', label:'Setor Educacional', category:'Educação', maxF:100 },
-  { id:'geoportal:equipamento_assistencia_social', label:'Assistência Social', category:'Social', maxF:200 },
-  { id:'geoportal:centro_referencia_assistencia_social', label:'CRAS', category:'Social', maxF:100 },
-  { id:'geoportal:servico_assistencia_social_familia', label:'Serv. Assistência Social Família', category:'Social', maxF:100 },
-  { id:'geoportal:servico_especializado_abordagem_social', label:'Serv. Especializado Abordagem Social', category:'Social', maxF:100 },
-  { id:'geoportal:servico_medida_socioeducativa', label:'Serv. Medida Socioeducativa', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_entidade_crianca_adolescente', label:'Entidades Criança e Adolescente', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_conselho_tutelar', label:'Conselho Tutelar', category:'Social', maxF:50 },
-  { id:'geoportal:conselho_tutelar_perimetro', label:'Perímetro Conselho Tutelar', category:'Social', maxF:50 },
-  { id:'geoportal:cidade_solidaria', label:'Cidade Solidária', category:'Social', maxF:100 },
-  { id:'geoportal:seguranca_alimentar', label:'Segurança Alimentar', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_bom_prato', label:'Bom Prato', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_sacoloes', label:'Sacolões', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_mercados_municipais', label:'Mercados Municipais', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_feira_livre', label:'Feiras Livres', category:'Social', maxF:200 },
-  { id:'geoportal:adesampa', label:'ADE Sampa', category:'Social', maxF:100 },
-  { id:'geoportal:descomplica', label:'Descomplica SP', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_rede_servicos', label:'Rede de Serviços', category:'Social', maxF:100 },
-  { id:'geoportal:equipamento_cultura_bibliotecas', label:'Bibliotecas', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_cultura_museus', label:'Museus', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_cultura_espacos_culturais', label:'Espaços Culturais', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_cultura_teatro_cinema_show', label:'Teatro / Cinema / Show', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_cultura_outros', label:'Cultura — Outros', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:fomento_cultura_periferia', label:'Fomento Cultura Periferia', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_esporte_centro_esportivo', label:'Centros Esportivos', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_esporte_clubes', label:'Clubes', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_esporte_clubesdacomunidade', label:'Clubes da Comunidade', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_esporte_estadios', label:'Estádios', category:'Cultura/Esporte', maxF:20 },
-  { id:'geoportal:equipamento_esporte_outros', label:'Esporte — Outros', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_shopping_center', label:'Shopping Centers', category:'Cultura/Esporte', maxF:100 },
-  { id:'geoportal:equipamento_bombeiros', label:'Corpo de Bombeiros', category:'Segurança', maxF:50 },
-  { id:'geoportal:equipamento_policia_militar', label:'Polícia Militar', category:'Segurança', maxF:100 },
-  { id:'geoportal:equipamento_policia_civil', label:'Polícia Civil', category:'Segurança', maxF:100 },
-  { id:'geoportal:equipamento_guarda_civil_metropolitana', label:'Guarda Civil Metropolitana', category:'Segurança', maxF:100 },
-  { id:'geoportal:batalhao_policia_militar', label:'Batalhão PM', category:'Segurança', maxF:50 },
-  { id:'geoportal:companhia_policia_militar', label:'Companhia PM', category:'Segurança', maxF:100 },
-  { id:'geoportal:comando_policia_militar', label:'Comando PM', category:'Segurança', maxF:20 },
-  { id:'geoportal:delegacia_policia_civil', label:'Delegacia de Polícia Civil', category:'Segurança', maxF:100 },
-  { id:'geoportal:seccional_policia_civil', label:'Seccional de Polícia Civil', category:'Segurança', maxF:50 },
-  { id:'geoportal:junta_servico_militar', label:'Junta de Serviço Militar', category:'Segurança', maxF:100 },
-  { id:'geoportal:unidade_comdec', label:'COMDEC', category:'Segurança', maxF:100 },
-  { id:'geoportal:subprefeitura', label:'Subprefeitura', category:'Administrativo', maxF:10 },
-  { id:'geoportal:sede_subprefeitura', label:'Sede de Subprefeitura', category:'Administrativo', maxF:50 },
-  { id:'geoportal:distrito_municipal', label:'Distrito Municipal', category:'Administrativo', maxF:10 },
-  { id:'geoportal:setor_censitario_2022', label:'Setor Censitário 2022', category:'Administrativo', maxF:200 },
-  { id:'geoportal:cartorio_registro_imovel', label:'Cartório de Registro de Imóveis', category:'Administrativo', maxF:50 },
-  { id:'geoportal:licenca_industrial', label:'Licença Industrial', category:'Administrativo', maxF:200 },
-  { id:'geoportal:controle_uso_via_publica_geoinfra', label:'Controle Uso Via Pública (GeoInfra)', category:'Administrativo', maxF:100 },
-  { id:'geoportal:servico_varricao_lote_amlurb', label:'Serviço Varrição Lote (AMLURB)', category:'Administrativo', maxF:100 },
-  { id:'geoportal:agencia_funeraria', label:'Agência Funerária', category:'Administrativo', maxF:50 },
-  { id:'geoportal:equipamento_cemiterio', label:'Cemitérios', category:'Administrativo', maxF:50 },
-  { id:'geoportal:velorio', label:'Velórios', category:'Administrativo', maxF:50 },
-  { id:'geoportal:gerencia_cet', label:'Gerência CET', category:'Administrativo', maxF:20 },
-  { id:'geoportal:departamento_cet', label:'Departamento CET', category:'Administrativo', maxF:20 },
-  { id:'geoportal:equipamento_casas_mediacao', label:'Casas de Mediação', category:'Administrativo', maxF:50 },
-  { id:'geoportal:central_intermediacao_libra', label:'Central de Intermediação Libra', category:'Administrativo', maxF:50 },
-  { id:'geoportal:equipamento_praca_wifi', label:'Praça WiFi', category:'Administrativo', maxF:100 },
-  { id:'geoportal:conectividade_fablab_grande', label:'FabLab Grande', category:'Administrativo', maxF:50 },
-  { id:'geoportal:conectividade_fablab_pequeno', label:'FabLab Pequeno', category:'Administrativo', maxF:50 },
-  { id:'geoportal:conectividade_telecentro', label:'Telecentros', category:'Administrativo', maxF:100 },
-  { id:'geoportal:papeleira', label:'Papeleiras', category:'Administrativo', maxF:300 },
-];
+// ══════════════════════════════════════════════════════════════════════════════
+// METADADOS ESPECIAIS — camadas que precisam de tratamento diferenciado
+// Todas as demais camadas são descobertas dinamicamente via GetCapabilities.
+// heavyGeom:true → timeout 55s, maxF reduzido (resposta ~600KB por feature)
+// ══════════════════════════════════════════════════════════════════════════════
+const HEAVY_LAYERS = {
+  'geoportal:area_influencia_metro': { heavyGeom:true, maxF:3,  label:'Área de Influência Metrô',  category:'Transporte' },
+  'geoportal:area_influencia_trem':  { heavyGeom:true, maxF:3,  label:'Área de Influência CPTM',   category:'Transporte' },
+};
 
 const WFS_BASE = 'https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs';
+
+// ══════════════════════════════════════════════════════════════════════════
+// CATÁLOGO DINÂMICO — GetCapabilities
+// O app busca o catálogo real do servidor a cada varredura.
+// Camadas já conhecidas no LAYER_CATALOG preservam seus metadados enriquecidos
+// (heavyGeom, maxF customizado, categorias revisadas).
+// Camadas novas são auto-categorizadas por palavras-chave.
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Auto-categorização por palavras-chave do id/título ───────────────────
+function autoCategorize(id, title) {
+  const s = (id + ' ' + title).toLowerCase()
+    .replace(/[áàãâä]/g,'a').replace(/[éèêë]/g,'e')
+    .replace(/[íìîï]/g,'i').replace(/[óòõôö]/g,'o')
+    .replace(/[úùûü]/g,'u').replace(/ç/g,'c').replace(/ñ/g,'n');
+
+  if (/saude|hospital|ubs|ams|crs|pronto.socorro|clinica|farmacia|vigilancia_sanitaria/.test(s))
+    return 'Saúde';
+  if (/escola|ensino|educacao|ceu_|emef|emei|cei |creche|etec|fatec|universidade|biblioteca/.test(s))
+    return 'Educação';
+  if (/metro|cptm|trem|ferrovia|terminal|onibus|bus_|corredor|faixa_bus|ciclovia|bicicleta|estacao|trilho/.test(s))
+    return 'Transporte';
+  if (/zona|zoneamento|eixo|operacao_urbana|pde_|plano_|aiu|zeis|zepec|zepam|outorga|ctlu|macroar|deliberac|cota_solid|perimetro|macrozona|arco_/.test(s))
+    return 'Planejamento';
+  if (/lote|edificac|quadra|setor_fiscal|proprio_municipal|marco_geodesico|conjunto_habitacional|cadastr|imovel/.test(s))
+    return 'Cadastro';
+  if (/parque|jardim|verde|arvore|cobertura_vegetal|flora|fauna|manancial|represa|horta|pomar|bosque|ambiental|residuo|esgoto|saneamento|drenagem/.test(s))
+    return 'Meio Ambiente';
+  if (/rio|corrego|ribeirao|lago|lagoa|hidrograf|varzeado|area_inundavel|inundavel|agua_superficial/.test(s))
+    return 'Hidrografia';
+  if (/patrimonio|tombado|bem_cultural|historico|paisagem|cultural|iphan|conpresp|condephaat|zepec_apc/.test(s))
+    return 'Patrimônio';
+  if (/risco|geotecni|erosao|solo_mole|geolog|contaminad|area_risco|carta_geotec/.test(s))
+    return 'Geologia';
+  if (/seguranca|policia|bombeiro|cdc_|defesa_civil|penitenciaria|presidio|delegacia/.test(s))
+    return 'Segurança';
+  if (/habitacao|his_|hmp_|ehis|moradia|cortico|assentamento|favela|irregular|regulariza|sem_teto/.test(s))
+    return 'Habitação';
+  if (/social|cras|creas|vulnerab|assistencia|idoso|crianca|adolescente|familia|pop_rua/.test(s))
+    return 'Social';
+  if (/logist|armazem|industria|fabrica|terminal_carga|porto|aeroporto|mineracao/.test(s))
+    return 'Logística';
+  if (/rede_|duto|galeria|boca_lobo|telecom|fibra|energia|iluminacao|infraestr/.test(s))
+    return 'Infraestrutura';
+  if (/subprefeitura|distrito|limite_|divisao|municipio|fronteira|admin|regiao/.test(s))
+    return 'Administrativo';
+  if (/logradouro|segmento_|via_|calcada|passeio|rua_|avenida_|calçada|faixa_nao_edificavel|melhoramento/.test(s))
+    return 'Logradouros';
+  if (/esporte|equipamento_esportivo|clube|quadra_esportiva|piscina_publica|ginasio/.test(s))
+    return 'Esporte';
+  if (/cultura|teatro|cinema|museu|centro_cultural|fablab|telecentro/.test(s))
+    return 'Cultura';
+
+  return 'Outros';
+}
+
+// ── Busca catálogo dinamicamente via GetCapabilities ─────────────────────
+async function fetchCapabilities() {
+  const url = `${WFS_BASE}?service=WFS&version=1.1.0&request=GetCapabilities`;
+  const proxied = proxyUrl
+    ? `${proxyUrl}?url=${encodeURIComponent(url)}`
+    : url;
+
+  const res = await fetch(proxied, { signal: AbortSignal.timeout(25000) });
+  if (!res.ok) throw new Error(`GetCapabilities HTTP ${res.status}`);
+  const text = await res.text();
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/xml');
+
+  // Todas as camadas vêm do servidor — sem lista fixa.
+  // Apenas HEAVY_LAYERS injeta metadados especiais onde necessário.
+  const featureTypes = doc.querySelectorAll('FeatureType');
+  const catalog = [];
+
+  for (const ft of featureTypes) {
+    const name  = ft.querySelector('Name')?.textContent?.trim()  || '';
+    const title = ft.querySelector('Title')?.textContent?.trim() || '';
+    if (!name.startsWith('geoportal:')) continue;
+
+    const heavy = HEAVY_LAYERS[name] || {};
+    catalog.push({
+      id:       name,
+      label:    heavy.label  || title || name.replace('geoportal:','').replace(/_/g,' '),
+      category: heavy.category || autoCategorize(name, title),
+      maxF:     heavy.maxF   || 200,
+      ...(heavy.heavyGeom ? { heavyGeom:true } : {}),
+    });
+  }
+
+  return catalog;
+}
+
+// ── Resolve catálogo 100% dinâmico — sem fallback estático ──────────────
+// O servidor GeoSampa é a única fonte de verdade.
+// Se GetCapabilities falhar (rede, proxy), a varredura não inicia e o
+// usuário vê a mensagem de erro para verificar o proxy.
+async function getEffectiveCatalog() {
+  setScanStatus('loading', 'Buscando catálogo de camadas no servidor GeoSampa…');
+  const catalog = await fetchCapabilities(); // lança exceção se falhar
+  log('ok', `GetCapabilities: ${catalog.length} camadas disponíveis no servidor`);
+  return catalog;
+}
 
 // ══════════════════════════════════════════════════════════════════
 // PROXY — URL configurável pelo usuário (salvo em localStorage)
@@ -1141,7 +983,6 @@ async function readTerrain(){
 // ══════════════════════════════════════════════════════════════════
 window.runScan=async function(){
   if(scanRunning)return;
-  // Avisa se proxy não configurado
   if(!proxyUrl){
     log('warn','⚠ Proxy não configurado! Vá em ⚙ Proxy e configure o Worker.');
     setScanStatus('error','⚠ Configure o Cloudflare Worker na aba ⚙ Proxy antes de varrer.');
@@ -1153,11 +994,14 @@ window.runScan=async function(){
   try{
     const terrain=await readTerrain();
     currentBBOX=terrain.bbox; currentGeometry=terrain.geometry; displayBBOX();
-    // Use INTERSECTS with real polygon if available, else BBOX+offset
     const bboxWithOffset=expandBBOX(currentBBOX,offsetMeters);
     const scanWKT = currentGeometry ? geojsonToWKT(turfBuffer(currentGeometry, offsetMeters)) : null;
-    setScanStatus('loading',`Varrendo ${LAYER_CATALOG.length} camadas — ${scanWKT?'polígono+buffer':'BBOX+offset'}...`);
-    log('info',`Modo: ${scanWKT?'INTERSECTS com polígono + buffer '+offsetMeters+'m':'BBOX + offset '+offsetMeters+'m'}`);
+
+    // Resolve catálogo: tenta GetCapabilities dinâmico, cai no estático
+    const catalog = await getEffectiveCatalog();
+
+    setScanStatus('loading',`Varrendo ${catalog.length} camadas — ${scanWKT?'polígono+buffer':'BBOX+offset'}...`);
+    log('info',`Modo: ${scanWKT?'INTERSECTS com polígono + buffer '+offsetMeters+'m':'BBOX + offset '+offsetMeters+'m'} · ${catalog.length} camadas`);
     window.switchTab('import');
     document.getElementById('emptyLayerState').style.display='none';
     document.getElementById('scanProgressWrap').style.display='block';
@@ -1168,7 +1012,7 @@ window.runScan=async function(){
     document.getElementById('importProgress').style.display='none';
     document.getElementById('layerList').innerHTML='';
     layerResults=[];
-    let done=0;const total=LAYER_CATALOG.length;
+    let done=0;const total=catalog.length;
     const probe=async(entry)=>{
       const r={...entry,count:0,features:[],checked:false,error:null};
       try{
@@ -1181,7 +1025,7 @@ window.runScan=async function(){
       done++;document.getElementById('scanProgressBar').style.width=`${Math.round(done/total*100)}%`;document.getElementById('scanProgressText').textContent=`${done}/${total} — ${entry.label}`;
       layerResults.push(r);renderLayerItem(r);updateSelCount();
     };
-    for(let i=0;i<LAYER_CATALOG.length;i+=4)await Promise.all(LAYER_CATALOG.slice(i,i+4).map(probe));
+    for(let i=0;i<catalog.length;i+=4)await Promise.all(catalog.slice(i,i+4).map(probe));
     layerResults.sort((a,b)=>{const av=(a.count>0||a.features.length>0)?1:0,bv=(b.count>0||b.features.length>0)?1:0;return bv-av||a.label.localeCompare(b.label);});
     renderAllLayers();
     const withData=layerResults.filter(l=>l.count>0||l.features.length>0).length;
@@ -1194,7 +1038,7 @@ window.runScan=async function(){
     document.getElementById('importBtnWrap').style.display='block';
     window.updateModeHint();
     if(withErr>0&&!proxyUrl){setScanStatus('error',`${withErr} erros — configure o Proxy!`);log('err','Configure o proxy em ⚙ Proxy para resolver os erros de CORS.');}
-    else{setScanStatus('success',`${withData} com dados · ${withErr} erros`);log('ok',`Varredura: ${withData}/${total} com dados`);}
+    else{setScanStatus('success',`${withData} com dados · ${withErr} erros · ${total} camadas`);log('ok',`Varredura: ${withData}/${total} com dados`);}
   }catch(err){setScanStatus('error',err.message);log('err',`Erro: ${err.message}`);}
   finally{scanRunning=false;document.getElementById('btnScan').disabled=false;}
 };
@@ -2742,7 +2586,7 @@ window.updateModeHint();
 </script>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 12px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#333;pointer-events:none;z-index:10;border-top:1px solid #1a1a1a;letter-spacing:.06em">
     <span>GEOSAMPA IMPORT · WFS MULTI-CAMADAS</span>
-    <span style="color:#00ACCD">V25</span>
+    <span style="color:#00ACCD">V26</span>
   </div>
 </body>
 </html>
