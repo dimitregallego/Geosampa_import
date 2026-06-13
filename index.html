@@ -1503,6 +1503,43 @@ const ZONAS_PERM_FIXA = new Set([
   'ZEPAM','ZPDS','ZPDSr','ZCOR-1','ZCOR-2','ZCOR-3','ZCORa','ZPR','ZER-1','ZER-2','ZERa'
 ]);
 
+// ── Quadro 3A — Quota Ambiental por Perímetro de Qualificação Ambiental ──
+// Fonte: Anexo da Lei 16.402/2016 (LPUOS), versão publicada no Gestão Urbana SP.
+// Nota (a): em ZEPAM/ZPDSr/ZPDS/ZCOR/ZPR/ZER aplicam-se taxas fixas da zona
+//           independentemente do PA (ver ZONAS_PERM_FIXA acima).
+// Nota (c): PA 13 = Macroárea de Contenção/Preservação — QA não se aplica (Art.76 §4).
+// Colunas: tp_lte500 = taxa permeabilidade lotes ≤500m²
+//           tp_gt500  = taxa permeabilidade lotes >500m²
+//           qa_*      = pontuação QA mínima por faixa de área
+//           alfa/beta = fatores de ponderação da fórmula QA = V^alfa × D^beta
+const QUADRO_3A = {
+  'PA 1':  { tp_lte500:0.15, tp_gt500:0.25, qa_500_1k:0.45, qa_1k_2k5:0.60, qa_2k5_5k:0.70, qa_5k_10k:0.80, qa_gt10k:1.00, alfa:0.50, beta:0.50 },
+  'PA 2':  { tp_lte500:0.15, tp_gt500:0.25, qa_500_1k:0.40, qa_1k_2k5:0.52, qa_2k5_5k:0.64, qa_5k_10k:0.70, qa_gt10k:0.86, alfa:0.50, beta:0.50 },
+  'PA 3':  { tp_lte500:0.15, tp_gt500:0.25, qa_500_1k:0.37, qa_1k_2k5:0.48, qa_2k5_5k:0.60, qa_5k_10k:0.65, qa_gt10k:0.78, alfa:0.50, beta:0.50 },
+  'PA 4':  { tp_lte500:0.15, tp_gt500:0.25, qa_500_1k:0.37, qa_1k_2k5:0.48, qa_2k5_5k:0.60, qa_5k_10k:0.65, qa_gt10k:0.78, alfa:0.50, beta:0.50 },
+  'PA 5':  { tp_lte500:0.15, tp_gt500:0.25, qa_500_1k:0.29, qa_1k_2k5:0.37, qa_2k5_5k:0.46, qa_5k_10k:0.50, qa_gt10k:0.57, alfa:0.40, beta:0.60 },
+  'PA 6':  { tp_lte500:0.15, tp_gt500:0.20, qa_500_1k:0.34, qa_1k_2k5:0.44, qa_2k5_5k:0.55, qa_5k_10k:0.60, qa_gt10k:0.71, alfa:0.50, beta:0.50 },
+  'PA 7':  { tp_lte500:0.15, tp_gt500:0.20, qa_500_1k:0.31, qa_1k_2k5:0.41, qa_2k5_5k:0.51, qa_5k_10k:0.55, qa_gt10k:0.64, alfa:0.30, beta:0.70 },
+  'PA 8':  { tp_lte500:0.15, tp_gt500:0.20, qa_500_1k:0.37, qa_1k_2k5:0.48, qa_2k5_5k:0.60, qa_5k_10k:0.65, qa_gt10k:0.78, alfa:0.50, beta:0.50 },
+  'PA 9':  { tp_lte500:0.10, tp_gt500:0.15, qa_500_1k:0.37, qa_1k_2k5:0.48, qa_2k5_5k:0.60, qa_5k_10k:0.65, qa_gt10k:0.78, alfa:0.50, beta:0.50 },
+  'PA 10': { tp_lte500:0.20, tp_gt500:0.25, qa_500_1k:0.23, qa_1k_2k5:0.30, qa_2k5_5k:0.37, qa_5k_10k:0.40, qa_gt10k:0.42, alfa:0.60, beta:0.40 },
+  'PA 11': { tp_lte500:0.20, tp_gt500:0.30, qa_500_1k:0.26, qa_1k_2k5:0.34, qa_2k5_5k:0.42, qa_5k_10k:0.45, qa_gt10k:0.49, alfa:0.60, beta:0.40 },
+  'PA 12': { tp_lte500:0.20, tp_gt500:0.30, qa_500_1k:0.26, qa_1k_2k5:0.34, qa_2k5_5k:0.42, qa_5k_10k:0.45, qa_gt10k:0.49, alfa:0.50, beta:0.50 },
+  'PA 13': null, // Macroárea de Contenção/Preservação — QA não se aplica (Art.76 §4)
+};
+
+// Retorna pontuação QA mínima do Quadro 3A para um dado PA e área de lote
+function getQAMin(paCode, areaM2) {
+  const q = QUADRO_3A[paCode];
+  if (!q) return null;
+  if (areaM2 <= 500)   return null;         // isento (Art.76 §2), mas mín 0.15 p/ redução perm.
+  if (areaM2 <= 1000)  return q.qa_500_1k;
+  if (areaM2 <= 2500)  return q.qa_1k_2k5;
+  if (areaM2 <= 5000)  return q.qa_2k5_5k;
+  if (areaM2 <= 10000) return q.qa_5k_10k;
+  return q.qa_gt10k;
+}
+
 // ── Grade espacial de Qualificação Ambiental (Mapa 3 LPUOS — Lei 16.402/16) ────
 // Fonte: GeoSampa geoportal_zoneamento_2016_map3.geojson (EPSG:31983, dissolve+grid 200m)
 // 33.851 células de 200m×200m cobrindo SP. Lookup: ll2utm(lng,lat) → (row,col) → PA 1-13
@@ -1899,21 +1936,35 @@ async function _runReport(features) {
     // Área real do terreno para os cálculos (m²)
     const At_real = terrainArea && parseFloat(terrainArea) > 0 ? parseFloat(terrainArea) : 900;
 
-    // ── Qualificação Ambiental: PA do terreno (Mapa 3 LPUOS) ──────────────
-    // Usa centroide do terreno selecionado para lookup na grade espacial
+    // ── Qualificação Ambiental: PA do terreno (Mapa 3 LPUOS 16.402/16) ────
+    // Tenta centroide do polígono; fallback para centroide do BBOX
     let qaTerreno = null;
-    if (features && features.length > 0) {
-      try {
-        const merged = mergeToSinglePolygon(features.filter(f=>f.geometry));
-        if (merged) {
-          const ctr = turf.centroid({type:'Feature',geometry:merged,properties:{}});
-          const [lng, lat] = ctr.geometry.coordinates;
-          qaTerreno = getQualificacaoAmbiental(lng, lat);
-          if (qaTerreno) log('ok', `Qualificação Ambiental: ${qaTerreno}`);
-          else log('warn', 'PA não encontrado para este terreno (fora da grade ou área sem PA).');
+    let qaCoordsUsed = null;
+    try {
+      let lng, lat;
+      if (features && features.length > 0) {
+        const pols = features.filter(f => f.geometry &&
+          (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+        if (pols.length > 0) {
+          const merged = mergeToSinglePolygon(pols);
+          if (merged && typeof turf !== 'undefined') {
+            const ctr = turf.centroid({ type:'Feature', geometry:merged, properties:{} });
+            [lng, lat] = ctr.geometry.coordinates;
+          }
         }
-      } catch(e) { log('warn', `Erro ao consultar PA: ${e.message}`); }
-    }
+      }
+      // Fallback: centroide do BBOX da última varredura
+      if ((lng == null || lat == null) && currentBBOX) {
+        lng = (currentBBOX.minX + currentBBOX.maxX) / 2;
+        lat = (currentBBOX.minY + currentBBOX.maxY) / 2;
+      }
+      if (lng != null && lat != null) {
+        qaCoordsUsed = [lng, lat];
+        qaTerreno = getQualificacaoAmbiental(lng, lat);
+        if (qaTerreno) log('ok', `Qualificação Ambiental detectada: ${qaTerreno} (lng=${lng.toFixed(5)}, lat=${lat.toFixed(5)})`);
+        else log('warn', `PA não encontrado para lng=${lng.toFixed(5)}, lat=${lat.toFixed(5)} — verifique se terreno está em SP.`);
+      }
+    } catch(e) { log('warn', `Erro ao detectar PA: ${e.message}`); }
 
     // ── Por zona ──────────────────────────────────────────────────
     const zonesUniq = [...new Map(zones.map(z=>[z.cd_zoneamento_perimetro,z])).values()];
@@ -2128,70 +2179,126 @@ async function _runReport(features) {
           <div class="report-note">Art.66 LPUOS: recuos laterais e de fundo para h&gt;10m seguem fórmula proporcional à altura (H) — mínimo de 3m, não valor fixo. Dispensados se: (I) h≤10m; (II) lote vizinho com edificação encostada na divisa; (III) lote ≤250m² ou frente ≤10m. Art.67: passeio deve ter ≥5m — se já tiver ou for doada a faixa, recuo frontal dispensado em ZEU/ZEUa/ZEUP/ZEUPa/ZEM/ZEMP (obrigatório) e ZC/ZCa (obrig. para lotes &gt;2.500m²).</div>
         </div>`;
 
-        // ── 6. Qualificação Ambiental — modelo correto (Art.74-81 LPUOS) ──
+        // ── 6. Qualificação Ambiental — detecção automática via Mapa 3 LPUOS ──
         {
           const permFixa = ZONAS_PERM_FIXA.has(code);
           const taxaFixa = params.taxa_perm_prev || params.taxa_perm_min || null;
+          const at = At_real || 900;
+          const qaObrig = at > 500;
+          const pa13    = qaTerreno === 'PA 13';
+          const paNum   = qaTerreno ? parseInt(qaTerreno.replace('PA ','')) : null;
+          const paGrupoA = paNum && [1,4,5,6,7,10,11,12].includes(paNum);
+          const ncqaFator = paGrupoA ? '0,07' : '0,09';
+          const q3a = qaTerreno ? QUADRO_3A[qaTerreno] : null;
+          const qaMin = q3a ? getQAMin(qaTerreno, at) : null;
+          // taxa de permeabilidade: zona fixa (Art.81 §1) > Quadro 3A por PA
+          const tpZona = permFixa ? taxaFixa : null;
+          const tpPA   = q3a ? (at <= 500 ? q3a.tp_lte500 : q3a.tp_gt500) : null;
+          const tp     = tpZona || tpPA;
+
           html += `<div class="report-section">
-            <div class="report-section-title">Qualificação Ambiental (QA) — Art.74-81 LPUOS / Dec.57.776/17</div>
+            <div class="report-section-title">Qualificação Ambiental (QA) — Mapa 3 / Quadro 3A · Lei 16.402/16</div>
+
+            ${qaTerreno ? `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(0,172,205,.06);border-bottom:1px solid var(--border2)">
+              <div style="background:var(--kv-blue);color:#000;font-weight:700;font-size:18px;padding:6px 18px;border-radius:6px;font-family:var(--mono)">${qaTerreno}</div>
+              <div>
+                <div style="font-weight:600;font-size:12px">${pa13 ? 'Isento — Macroárea de Contenção/Preservação (Art.76 §4)' : 'Perímetro de Qualificação Ambiental detectado automaticamente'}</div>
+                <div style="font-size:10px;color:var(--muted)">Fonte: GeoSampa Mapa 3 · Lei 16.402/2016 · Grade 200m · Dado fixo de 2016</div>
+              </div>
+            </div>` : `
+            <div style="padding:8px 12px;background:rgba(245,166,35,.05);border-bottom:1px solid rgba(245,166,35,.2)">
+              <span style="color:var(--warn)">⚠ PA não identificado</span>
+              <span style="font-size:9px;color:var(--muted);display:block;margin-top:2px">Confirmar no GeoSampa → Pesquisar → Zoneamento → SQL</span>
+            </div>`}
+
             <table class="report-table">
               <tr>
-                <td>Quota Ambiental</td>
-                <td><span class="report-val-highlight">Obrigatória para lotes &gt;500m²</span>
-                  <span style="font-size:9px;color:var(--muted)"> — qualquer zona, Art.74 LPUOS</span>
-                </td>
+                <td>Área do terreno</td>
+                <td><strong>${at.toLocaleString('pt-BR')} m²</strong></td>
               </tr>
               <tr>
-                <td>Perímetro de Qualificação Ambiental<br>
-                  <span style="font-size:9px;color:var(--muted)">Define pontuação mínima exigida e alfa/beta (Mapa 3 LPUOS)</span>
-                </td>
-                <td>
-                  ${qaTerreno
-                    ? `<span class="report-val-highlight">${qaTerreno}</span>
-                       <span style="font-size:9px;color:var(--muted)"> — identificado automaticamente (grade 200m)</span>`
-                    : `<span class="report-val-warn">⚠ Consultar SISZON — GeoSampa</span><br>
-                       <span style="font-size:9px;color:var(--muted)">Portal GeoSampa → Pesquisar → Zoneamento → SQL (Setor-Quadra-Lote)</span>`
-                  }
+                <td>Obrigatoriedade da QA</td>
+                <td>${pa13
+                  ? '<span style="color:var(--muted)">Não se aplica (PA 13)</span>'
+                  : !qaObrig
+                    ? `<span class="report-val-highlight">Isento</span> — lote ≤500m² (Art.76 §2)<br><span style="font-size:9px;color:var(--muted)">Para reduzir permeabilidade: QA mín = 0,15 (Art.81 §3)</span>`
+                    : '<span class="report-val-highlight">Obrigatória</span> — lote >500m², edificação nova ou reforma >20% (Art.76)'}
                 </td>
               </tr>
+
+              ${!pa13 ? `
               <tr>
                 <td>Taxa de Permeabilidade Mínima<br>
                   <span style="font-size:9px;color:var(--muted)">${permFixa
-                    ? `Art.81 §1º — fixada pela zona ${code}, prevalece sobre o PA`
-                    : 'Definida pelo PA do Perímetro (Quadro 3A) — consultar SISZON'}</span>
+                    ? `Art.81 §1º — fixada pela zona ${code}`
+                    : q3a ? `Quadro 3A · ${qaTerreno}` : 'Quadro 3A — consultar PA'}</span>
                 </td>
-                <td>${permFixa && taxaFixa
-                  ? `<span class="report-val-highlight">${fPct(taxaFixa)}</span>
-                     <span style="font-size:9px;color:var(--muted)"> (taxa fixa da zona — Art.81 §1º)</span>`
-                  : '<span class="report-val-warn">Depende do PA — consultar SISZON</span>'
-                }</td>
+                <td>${tp !== null
+                  ? `<span class="report-val-highlight">${(tp*100).toFixed(0)}%</span>${permFixa ? ' <span style="font-size:9px;color:var(--muted)">(fixa da zona)</span>' : ''}`
+                  : '<span class="report-val-warn">—</span>'}</td>
+              </tr>
+
+              ${qaObrig && q3a ? `
+              <tr>
+                <td>Pontuação QA Mínima<br>
+                  <span style="font-size:9px;color:var(--muted)">Quadro 3A · ${qaTerreno} · lote ${at.toLocaleString('pt-BR')}m²</span>
+                </td>
+                <td>${qaMin !== null
+                  ? `<span class="report-val-highlight">${qaMin.toFixed(2)}</span>`
+                  : '<span style="color:var(--muted)">Isento (≤500m²)</span>'}</td>
               </tr>
               <tr>
-                <td>Fórmula QA <span style="font-size:9px;color:var(--muted)">(Art.75)</span></td>
-                <td style="font-family:var(--mono);font-size:11px">
-                  QA = V<sup>alfa</sup> × D<sup>beta</sup><br>
-                  <span style="font-size:9px;color:var(--muted)">V=Cobertura Vegetal · D=Drenagem · alfa,beta=fatores do PA (Quadro 3A)</span>
+                <td>Fórmula QA = V<sup>alfa</sup> × D<sup>beta</sup><br>
+                  <span style="font-size:9px;color:var(--muted)">Fatores do ${qaTerreno} · Quadro 3A</span>
                 </td>
-              </tr>
-              <tr>
-                <td>Lotes ≤500m² fora de ZEPAM/ZPDS</td>
-                <td>Isentos da QA, mas devem atingir pontuação mín. 0,15 (Art.81 §3º)</td>
-              </tr>
-              <tr>
-                <td>Incentivo QA (Art.82)</td>
-                <td>Superar a pontuação mínima gera desconto na OODC<br>
-                  <span style="font-size:9px;color:var(--muted)">ou área não computável adicional em lotes ≤5.000m²</span>
+                <td style="font-family:var(--mono)">
+                  alfa = <strong>${q3a.alfa.toFixed(2)}</strong> &nbsp;·&nbsp; beta = <strong>${q3a.beta.toFixed(2)}</strong>
                 </td>
-              </tr>
+              </tr>` : !qaObrig && q3a ? `
+              <tr>
+                <td>Taxa de Permeabilidade (lotes ≤500m²)<br>
+                  <span style="font-size:9px;color:var(--muted)">Quadro 3A · ${qaTerreno}</span>
+                </td>
+                <td><span class="report-val-highlight">${(q3a.tp_lte500*100).toFixed(0)}%</span></td>
+              </tr>` : ''}
+
+              ${qaObrig && q3a ? `
+              <tr>
+                <td>Incentivo NCQA — área n/comp. (Art.82 §3 · Lei 18.081/24)<br>
+                  <span style="font-size:9px;color:var(--muted)">Grupo ${paGrupoA ? 'A (PA 1,4,5,6,7,10,11,12)' : 'B (demais)'} · lotes ≤5.000m²</span>
+                </td>
+                <td style="font-family:var(--mono);font-size:10px">
+                  (VQAmin−1) × ${at.toLocaleString('pt-BR')} × ${ncqaFator}
+                </td>
+              </tr>` : ''}
+              ` : ''}
             </table>
-            <div class="report-note">
-              <strong>Componentes que pontuam na QA (Quadro 3B):</strong>
-              <div style="display:flex;flex-wrap:wrap;gap:3px 14px;margin-top:4px;font-size:10px">
-                ${QA_COMPONENTES.map(c=>`<span>▸ ${c.item} <span style="color:var(--muted)">(${c.unidade})</span></span>`).join('')}
+
+            ${q3a && qaObrig ? `
+            <div class="report-note" style="margin-top:0">
+              <strong>Tabela Quadro 3A completa para ${qaTerreno}:</strong>
+              <div style="display:grid;grid-template-columns:auto auto auto auto auto auto;gap:1px 8px;margin-top:4px;font-size:10px;font-family:var(--mono)">
+                <span style="color:var(--muted)">≤500m²</span><span style="color:var(--muted)">500-1k</span><span style="color:var(--muted)">1k-2,5k</span><span style="color:var(--muted)">2,5k-5k</span><span style="color:var(--muted)">5k-10k</span><span style="color:var(--muted)">&gt;10k</span>
+                <span><strong>${(q3a.tp_lte500*100).toFixed(0)}% TP</strong></span>
+                <span>${q3a.qa_500_1k.toFixed(2)}</span>
+                <span>${q3a.qa_1k_2k5.toFixed(2)}</span>
+                <span>${q3a.qa_2k5_5k.toFixed(2)}</span>
+                <span>${q3a.qa_5k_10k.toFixed(2)}</span>
+                <span>${q3a.qa_gt10k.toFixed(2)}</span>
               </div>
-              <div style="margin-top:6px;color:var(--warn)">
-                ⚠ A camada "Perímetro de Qualificação Ambiental" não está disponível como WFS público no GeoSampa.
-                O PA exato (PA-1 a PA-13) só pode ser obtido pelo SISZON ou portal GeoSampa. PA-13 (Macroárea de Contenção/Preservação) é isento de QA (Art.76 §4º).
+            </div>` : ''}
+
+            <div class="report-note">
+              <strong>Componentes QA (Quadro 3B):</strong>
+              <div style="display:flex;flex-wrap:wrap;gap:2px 12px;margin-top:3px;font-size:10px">
+                ${QA_COMPONENTES.map(c=>`<span>▸ ${c.item}</span>`).join('')}
+              </div>
+              <div style="margin-top:5px;padding-top:5px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+                📌 <strong style="color:var(--text)">Fonte:</strong> GeoSampa · Mapa 3 · Lei 16.402/2016 / Quadro 3A.
+                <strong style="color:var(--text)">Este dado não é atualizado automaticamente</strong> — reflete o Mapa 3 do GeoSampa disponível em 2025.
+                Qualquer revisão do Mapa 3 ou do Quadro 3A requer atualização manual no app.
+                Confirmar com SISZON para projetos de licenciamento.
               </div>
             </div>
           </div>`;
@@ -2841,7 +2948,7 @@ window.updateModeHint();
 </script>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 12px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#333;pointer-events:none;z-index:10;border-top:1px solid #1a1a1a;letter-spacing:.06em">
     <span>GEOSAMPA IMPORT · WFS MULTI-CAMADAS</span>
-    <span style="color:#00ACCD">V31</span>
+    <span style="color:#00ACCD">V33</span>
   </div>
 </body>
 </html>
