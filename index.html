@@ -1486,44 +1486,39 @@ function calcMinUH(areaTerreno, caMaxComBen, cotaPartePorUH) {
   return Math.ceil((areaTerreno * caMaxComBen) / cotaPartePorUH);
 }
 
-// ── Parâmetros de Qualificação Ambiental — Quadro 3A LPUOS + Dec.57.776/17 ──
-// qa_categoria no ZONEAMENTO_PARAMS mapeia para:
-//   PA → Zonas de eixo/transformação: Quota Ambiental obrigatória (pontuação)
-//   PB → Zonas de qualificação:       Taxa de Permeabilidade (Quadro 3)
-//   PC → Zonas de preservação:        Taxa de Permeabilidade elevada (Quadro 3)
-// O número exato do PA (PA1–PA5 do Perímetro de Qualificação Ambiental) define
-// a pontuação mínima e só é obtido via SISZON (consulta SQL/IPTU no GeoSampa).
-const QA_PARAMS = {
-  PA: {
-    titulo:       'Quota Ambiental — obrigatória',
-    instrumento:  'Decreto 57.776/2017 (regulamentado pelo PDE e LPUOS)',
-    como_atender: 'Pontuação mínima calculada por componentes ambientais, conforme tabela do Decreto. Quanto maior a nota exigida (PA1→PA5), mais intervenções são necessárias.',
-    componentes: [
-      { item:'Permeabilidade do solo',              peso:'até 20 pts — varia por tipo de revestimento' },
-      { item:'Arborização',                          peso:'por porte: pequeno(3), médio(5), grande(7 pts)' },
-      { item:'Telhado verde extensivo / intensivo',  peso:'2 ou 4 pts/m²' },
-      { item:'Jardim vertical (parede verde)',        peso:'1 pt/m²' },
-      { item:'Captação de água de chuva',            peso:'até 10 pts' },
-      { item:'Horta urbana comunitária',             peso:'até 5 pts' },
-      { item:'Compostagem',                          peso:'3 pts' },
-    ],
-    alerta: 'O número do PA (PA1–PA5) que define a pontuação mínima obrigatória é determinado pelo Perímetro de Qualificação Ambiental — não disponível como WFS. Consultar via GeoSampa → Pesquisar → Zoneamento → SQL (Setor-Quadra-Lote).',
-  },
-  PB: {
-    titulo:       'Taxa de Permeabilidade (Quadro 3)',
-    instrumento:  'LPUOS Lei 16.402/16 — Quadro 3',
-    como_atender: 'Percentual mínimo da área do lote com solo permeável ou cobertura vegetal. Pode ser atendido por jardins, gramados, pisos intertravados drenantes, etc.',
-    componentes:  null,
-    alerta:       null,
-  },
-  PC: {
-    titulo:       'Taxa de Permeabilidade Elevada (Quadro 3)',
-    instrumento:  'LPUOS Lei 16.402/16 — Quadro 3 (zonas de proteção)',
-    como_atender: 'Taxa mais restritiva, aplicada em zonas de preservação e proteção ambiental. Reflete necessidade de proteção de recursos hídricos e vegetação nativa.',
-    componentes:  null,
-    alerta:       'Em ZPDSr e ZEPAM a taxa prevalece (campo taxa_perm_prev no Quadro 3), independentemente do tamanho do lote.',
-  },
-};
+// ── Qualificação Ambiental — modelo correto conforme LPUOS Art.74-81 ────────
+//
+// O território de SP é dividido em PERÍMETROS DE QUALIFICAÇÃO AMBIENTAL (PA1-PA13).
+// Esses perímetros são ESPACIAIS — cruzam o município independentemente da zona.
+// Todos os lotes com área > 500m² estão sujeitos à Quota Ambiental.
+//
+// EXCEÇÃO Art.81 §1º: ZEPAM, ZPDS, ZCOR, ZPR e ZER têm taxa de permeabilidade
+// fixada pela zona, independente do PA onde o lote se localiza.
+//
+// Para todas as demais zonas (ZEU, ZM, ZC etc.): taxa e pontuação mínima são
+// definidas pelo PA do terreno — requer consulta SISZON/GeoSampa.
+
+// Zonas com taxa de permeabilidade FIXA pela zona (Art.81 §1º — overrides PA)
+const ZONAS_PERM_FIXA = new Set([
+  'ZEPAM','ZPDS','ZPDSr','ZCOR-1','ZCOR-2','ZCOR-3','ZCORa','ZPR','ZER-1','ZER-2','ZERa'
+]);
+
+// Componentes da QA para cálculo (Quadro 3B LPUOS)
+const QA_COMPONENTES = [
+  { item:'Área permeável — solo natural / terra',          unidade:'FD/m²' },
+  { item:'Área permeável — revestimento drenante',         unidade:'FD/m²' },
+  { item:'Cobertura vegetal — gramíneas/forrações',        unidade:'FV/m²' },
+  { item:'Cobertura vegetal — arbustos/sub-arbustos',      unidade:'FV/m²' },
+  { item:'Árvore pequeno porte (h≤4m)',                    unidade:'FV/unid.' },
+  { item:'Árvore médio porte (4m<h≤8m)',                   unidade:'FV/unid.' },
+  { item:'Árvore grande porte (h>8m)',                     unidade:'FV/unid.' },
+  { item:'Telhado verde extensivo',                        unidade:'FV/m²' },
+  { item:'Telhado verde intensivo',                        unidade:'FV/m²' },
+  { item:'Jardim vertical / parede verde',                 unidade:'FV/m²' },
+  { item:'Reservação de controle de escoamento',           unidade:'FD/m³' },
+  { item:'Captação de água de chuva p/ reúso',             unidade:'FD/m³' },
+];
+
 // ── helpers ──────────────────────────────────────────────────────
 let reportUseSelection = true;
 
@@ -2088,54 +2083,68 @@ async function _runReport(features) {
           <div class="report-note">Art.66 LPUOS: recuos laterais e de fundo para h&gt;10m seguem fórmula proporcional à altura (H) — mínimo de 3m, não valor fixo. Dispensados se: (I) h≤10m; (II) lote vizinho com edificação encostada na divisa; (III) lote ≤250m² ou frente ≤10m. Art.67: passeio deve ter ≥5m — se já tiver ou for doada a faixa, recuo frontal dispensado em ZEU/ZEUa/ZEUP/ZEUPa/ZEM/ZEMP (obrigatório) e ZC/ZCa (obrig. para lotes &gt;2.500m²).</div>
         </div>`;
 
-        // ── 6. Qualificação Ambiental — completa ─────
+        // ── 6. Qualificação Ambiental — modelo correto (Art.74-81 LPUOS) ──
         {
-          const qaDef = QA_PARAMS[qaCateg] || null;
+          const permFixa = ZONAS_PERM_FIXA.has(code);
+          const taxaFixa = params.taxa_perm_prev || params.taxa_perm_min || null;
           html += `<div class="report-section">
-            <div class="report-section-title">Qualificação Ambiental — Quadro 3A LPUOS</div>
+            <div class="report-section-title">Qualificação Ambiental (QA) — Art.74-81 LPUOS / Dec.57.776/17</div>
             <table class="report-table">
               <tr>
-                <td>Categoria (Quadro 3A)</td>
+                <td>Quota Ambiental</td>
+                <td><span class="report-val-highlight">Obrigatória para lotes &gt;500m²</span>
+                  <span style="font-size:9px;color:var(--muted)"> — qualquer zona, Art.74 LPUOS</span>
+                </td>
+              </tr>
+              <tr>
+                <td>Perímetro de Qualificação Ambiental<br>
+                  <span style="font-size:9px;color:var(--muted)">Define pontuação mínima exigida e alfa/beta</span>
+                </td>
                 <td>
-                  <span class="report-val-highlight">${qaCateg || '—'}</span>
-                  ${qaDef ? ` — <span style="font-size:10px">${qaDef.titulo}</span>` : ''}
-                </td>
-              </tr>
-              ${qaCateg === 'PA' ? `
-              <tr>
-                <td>Instrumento</td>
-                <td><span class="report-val-highlight">Quota Ambiental obrigatória</span><br>
-                  <span style="font-size:9px;color:var(--muted)">${qaDef.instrumento}</span></td>
-              </tr>
-              <tr>
-                <td>Número do PA<br>
-                  <span style="font-size:9px;color:var(--muted)">(define pontuação mínima)</span>
-                </td>
-                <td><span class="report-val-warn">Consultar SISZON — GeoSampa</span><br>
-                  <span style="font-size:9px;color:var(--muted)">Pesquisar → Zoneamento → SQL (Setor-Quadra-Lote)</span>
+                  <span class="report-val-warn">⚠ Consultar SISZON — GeoSampa</span><br>
+                  <span style="font-size:9px;color:var(--muted)">Portal GeoSampa → Pesquisar → Zoneamento → SQL (Setor-Quadra-Lote) → campo "Perímetro QA"</span>
                 </td>
               </tr>
               <tr>
-                <td>Componentes (pontuação)</td>
-                <td style="font-size:10px;line-height:1.7">
-                  ${qaDef.componentes.map(c=>`<span style="display:block"><strong>${c.item}</strong> — <span style="color:var(--muted)">${c.peso}</span></span>`).join('')}
+                <td>Taxa de Permeabilidade Mínima<br>
+                  <span style="font-size:9px;color:var(--muted)">${permFixa
+                    ? `Art.81 §1º — fixada pela zona ${code}, prevalece sobre o PA`
+                    : 'Definida pelo PA do Perímetro (Quadro 3A) — consultar SISZON'}</span>
                 </td>
-              </tr>` : `
-              <tr>
-                <td>Taxa de Permeabilidade Mín.</td>
-                <td>${taxaPerm !== null ? fPct(taxaPerm) : '<span style="color:var(--muted)">Verificar Quadro 3</span>'}</td>
+                <td>${permFixa && taxaFixa
+                  ? `<span class="report-val-highlight">${fPct(taxaFixa)}</span>
+                     <span style="font-size:9px;color:var(--muted)"> (taxa fixa da zona — Art.81 §1º)</span>`
+                  : '<span class="report-val-warn">Depende do PA — consultar SISZON</span>'
+                }</td>
               </tr>
-              ${params.taxa_perm_prev ? `<tr>
-                <td>Taxa Prevalente (campo taxa_perm_prev)</td>
-                <td><span class="report-val-highlight">${fPct(params.taxa_perm_prev)}</span>
-                  <span style="font-size:9px;color:var(--muted)"> — aplica-se independente do tamanho do lote</span>
+              <tr>
+                <td>Fórmula QA <span style="font-size:9px;color:var(--muted)">(Art.75)</span></td>
+                <td style="font-family:var(--mono);font-size:11px">
+                  QA = V<sup>alfa</sup> × D<sup>beta</sup><br>
+                  <span style="font-size:9px;color:var(--muted)">V=Cobertura Vegetal · D=Drenagem · alfa,beta=fatores do PA (Quadro 3A)</span>
                 </td>
-              </tr>` : ''}`}
+              </tr>
+              <tr>
+                <td>Lotes ≤500m² fora de ZEPAM/ZPDS</td>
+                <td>Isentos da QA, mas devem atingir pontuação mín. 0,15 (Art.81 §3º)</td>
+              </tr>
+              <tr>
+                <td>Incentivo QA (Art.82)</td>
+                <td>Superar a pontuação mínima gera desconto na OODC<br>
+                  <span style="font-size:9px;color:var(--muted)">ou área não computável adicional em lotes ≤5.000m²</span>
+                </td>
+              </tr>
             </table>
-            ${qaDef ? `<div class="report-note">
-              <strong>Como atender:</strong> ${qaDef.como_atender}
-              ${qaDef.alerta ? `<br><span style="color:var(--warn)">⚠ ${qaDef.alerta}</span>` : ''}
-            </div>` : ''}
+            <div class="report-note">
+              <strong>Componentes que pontuam na QA (Quadro 3B):</strong>
+              <div style="display:flex;flex-wrap:wrap;gap:3px 14px;margin-top:4px;font-size:10px">
+                ${QA_COMPONENTES.map(c=>`<span>▸ ${c.item} <span style="color:var(--muted)">(${c.unidade})</span></span>`).join('')}
+              </div>
+              <div style="margin-top:6px;color:var(--warn)">
+                ⚠ A camada "Perímetro de Qualificação Ambiental" não está disponível como WFS público no GeoSampa.
+                O PA exato (PA-1 a PA-13) só pode ser obtido pelo SISZON ou portal GeoSampa. PA-13 (Macroárea de Contenção/Preservação) é isento de QA (Art.76 §4º).
+              </div>
+            </div>
           </div>`;
         }
 
